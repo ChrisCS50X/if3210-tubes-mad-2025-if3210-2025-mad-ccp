@@ -2,7 +2,7 @@ package com.example.purrytify.ui.main
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.navigation.findNavController
+import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.example.purrytify.R
 import com.example.purrytify.databinding.ActivityMainBinding
@@ -20,7 +20,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupNavigation() {
-        val navController = findNavController(R.id.nav_host_fragment)
+        // Get NavController correctly from the NavHostFragment
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        val navController = navHostFragment.navController
+
+        // Connect BottomNavigationView with NavController
         binding.bottomNavigation.setupWithNavController(navController)
     }
 }
