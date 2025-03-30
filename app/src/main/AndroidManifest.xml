@@ -31,7 +31,7 @@
         </activity>
 
         <activity
-            android:name=".ui.main.MainActivity"
+            android:name=".ui.main.MainAct"
             android:exported="false" />
 
         <!-- Music Service -->
