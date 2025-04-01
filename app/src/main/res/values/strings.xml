@@ -7,4 +7,13 @@
     <string name="home">Home</string>
     <string name="library">Library</string>
     <string name="profile">Profile</string>
+    <string name="songs">SONGS</string>
+    <string name="listened">LISTENED</string>
+    <string name="liked">LIKED</string>
+    <string name="edit_profile">Edit Profile</string>
+    <string name="_32">32</string>
+    <string name="_50">50</string>
+    <string name="indonesia">Indonesia</string>
+    <string name="_135">135</string>
+    <string name="_13522xxx">13522xxx</string>
 </resources>
