@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">Purrytify</string>
-    <string name="app_logo">Purrytify Logo</string>
+    <string name="app_logo">Purrytify Logo</string>[
+    <string name="background_image_login">Background Image Login</string>
     <string name="email">Email</string>
     <string name="password">Password</string>
     <string name="login">LOGIN</string>
