@@ -1,0 +1,29 @@
+package com.example.purrytify.data.local.dao
+
+import androidx.room.*
+import kotlinx.coroutines.flow.Flow
+import com.example.purrytify.data.local.entity.SongEntity
+
+@Dao
+interface SongDao {
+    @Query("SELECT * FROM songs ORDER BY title ASC")
+    fun getAllSongs(): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE isLiked = 1 ORDER BY title ASC")
+    fun getLikedSongs(): Flow<List<SongEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSong(song: SongEntity): Long
+
+    @Update
+    suspend fun updateSong(song: SongEntity)
+
+    @Delete
+    suspend fun deleteSong(song: SongEntity)
+
+    @Query("UPDATE songs SET isLiked = :isLiked WHERE id = :songId")
+    suspend fun updateLikedStatus(songId: Long, isLiked: Boolean)
+
+    @Query("UPDATE songs SET playCount = playCount + 1 WHERE id = :songId")
+    suspend fun incrementPlayCount(songId: Long)
+}

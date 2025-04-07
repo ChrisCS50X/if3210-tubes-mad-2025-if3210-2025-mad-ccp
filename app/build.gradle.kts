@@ -56,6 +56,8 @@ dependencies {
 
     // Image loading
     implementation("io.coil-kt:coil:2.4.0")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    kapt("com.github.bumptech.glide:compiler:4.16.0")
 
     // Media playback
     implementation("androidx.media3:media3-exoplayer:1.2.0")
