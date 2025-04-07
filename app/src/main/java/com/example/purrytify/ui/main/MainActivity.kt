@@ -6,6 +6,10 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.example.purrytify.R
 import com.example.purrytify.databinding.ActivityMainBinding
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,6 +21,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupNavigation()
+        checkPermissions()
     }
 
     private fun setupNavigation() {
@@ -26,5 +31,50 @@ class MainActivity : AppCompatActivity() {
 
         // Connect BottomNavigationView with NavController
         binding.bottomNavigation.setupWithNavController(navController)
+    }
+
+    private fun checkPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Request granular media permissions
+            val permissions = mutableListOf<String>()
+
+            if (checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
+            }
+
+            if (checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.READ_MEDIA_IMAGES)
+            }
+
+            if (permissions.isNotEmpty()) {
+                requestPermissions(permissions.toTypedArray(), STORAGE_PERMISSION_CODE)
+            }
+        } else {
+            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(
+                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                    STORAGE_PERMISSION_CODE
+                )
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == STORAGE_PERMISSION_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted
+            } else {
+                Toast.makeText(this, "Storage permission is required to add songs", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    companion object {
+        private const val STORAGE_PERMISSION_CODE = 100
     }
 }

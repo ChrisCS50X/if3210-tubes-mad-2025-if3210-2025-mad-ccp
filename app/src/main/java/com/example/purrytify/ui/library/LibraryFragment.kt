@@ -8,6 +8,9 @@ import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.example.purrytify.databinding.FragmentLibraryBinding
 import com.google.android.material.tabs.TabLayoutMediator
+import com.example.purrytify.ui.addsong.AddSongDialogFragment
+import android.widget.TextView
+import com.example.purrytify.R
 
 class LibraryFragment : Fragment() {
 
@@ -26,6 +29,10 @@ class LibraryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupViewPager()
+
+        binding.buttonAddSong.setOnClickListener {
+            AddSongDialogFragment().show(childFragmentManager, "add_song_dialog")
+        }
     }
 
     private fun setupViewPager() {
@@ -34,12 +41,28 @@ class LibraryFragment : Fragment() {
 
         // Connect TabLayout with ViewPager2
         TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
-            tab.text = when (position) {
-                0 -> "All Songs"
-                1 -> "Liked Songs"
-                else -> null
+            // Get the custom view
+            val customView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.custom_tab_item, null) as TextView
+
+            // Set the text
+            customView.text = when (position) {
+                0 -> "All"
+                1 -> "Liked"
+                else -> ""
             }
+
+            // Set the view to the tab
+            tab.customView = customView
         }.attach()
+
+        binding.tabLayout.post {
+            val allTab = binding.tabLayout.getTabAt(0)?.view
+
+            val layoutParams = allTab?.layoutParams as? ViewGroup.MarginLayoutParams
+            layoutParams?.marginEnd = 30
+            allTab?.layoutParams = layoutParams
+        }
     }
 
     override fun onDestroyView() {

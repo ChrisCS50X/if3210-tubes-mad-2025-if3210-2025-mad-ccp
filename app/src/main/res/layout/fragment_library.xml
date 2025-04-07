@@ -9,7 +9,10 @@
         android:id="@+id/text_library_header"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp"
+        android:paddingTop="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="1dp"
         android:text="@string/library"
         android:textColor="@color/white"
         android:textSize="24sp"
@@ -17,16 +20,39 @@
         android:fontFamily="@font/poppins_bold"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <ImageView
+        android:id="@+id/button_add_song"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_plus"
+        android:padding="8dp"
+        android:paddingEnd="20dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/text_library_header"
+        app:layout_constraintBottom_toBottomOf="@id/text_library_header"
+        android:contentDescription="Add a new song" />
+
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tab_layout"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
         android:background="@color/black"
-        app:tabTextColor="@color/light_gray"
-        app:tabSelectedTextColor="@color/white"
-        app:tabIndicatorColor="@color/accent_green"
-        app:tabTextAppearance="@style/LibraryTabTextAppearance"
-        app:layout_constraintTop_toBottomOf="@id/text_library_header" />
+        app:tabBackground="@android:color/transparent"
+        app:tabIndicator="@null"
+        app:tabPaddingStart="0dp"
+        app:tabPaddingEnd="0dp"
+        app:tabInlineLabel="true"
+        app:tabMaxWidth="1000dp"
+        android:clipToPadding="false"
+        app:tabGravity="center"
+        app:tabContentStart="0dp"
+        android:clipChildren="false"
+        app:layout_constraintTop_toBottomOf="@id/text_library_header"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/view_pager"

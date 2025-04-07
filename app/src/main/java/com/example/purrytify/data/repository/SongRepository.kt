@@ -6,6 +6,7 @@ import com.example.purrytify.data.model.Song
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import com.example.purrytify.data.mapper.toDomainModel
+import com.example.purrytify.data.mapper.toEntity
 
 class SongRepository(private val songDao: SongDao) {
     val allSongs = songDao.getAllSongs().map { entities ->
@@ -22,5 +23,9 @@ class SongRepository(private val songDao: SongDao) {
 
     suspend fun toggleLikedStatus(songId: Long, isLiked: Boolean) {
         songDao.updateLikedStatus(songId, isLiked)
+    }
+
+    suspend fun insertSong(song: Song): Long {
+        return songDao.insertSong(song.toEntity())
     }
 }
