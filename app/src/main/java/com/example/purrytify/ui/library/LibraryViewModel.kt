@@ -39,6 +39,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             repository.toggleLikedStatus(song.id, !song.isLiked)
         }
     }
+
+    fun addSong(song: Song) {
+        viewModelScope.launch {
+            repository.insertSong(song)
+        }
+    }
 }
 
 class LibraryViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
