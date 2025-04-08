@@ -1,18 +1,28 @@
 package com.example.purrytify.ui.profile
 
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import com.bumptech.glide.Glide
 import com.example.purrytify.data.local.TokenManager
 import com.example.purrytify.databinding.FragmentProfileBinding
 import com.example.purrytify.data.repository.UserRepository
-import android.util.Log
-
+import com.example.purrytify.ui.main.MainActivity
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.example.purrytify.ui.main.NetworkViewModel
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class ProfileFragment : Fragment() {
 
@@ -20,6 +30,7 @@ class ProfileFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: ProfileViewModel
+    private val networkViewModel: NetworkViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -39,7 +50,7 @@ class ProfileFragment : Fragment() {
         viewModel = ViewModelProvider(this, factory)[ProfileViewModel::class.java]
 
         observeProfile()
-        viewModel.loadUserProfile()
+        observeNetworkStatus()
     }
 
 
@@ -63,6 +74,40 @@ class ProfileFragment : Fragment() {
             }
         }
     }
+
+    private fun observeNetworkStatus() {
+        var snackbar: Snackbar? = null
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                networkViewModel.isConnected.collectLatest { isConnected ->
+                    if (!isConnected) {
+                        if (snackbar == null) {
+                            val snackbar = Snackbar.make(
+                                binding.root,
+                                "No internet connection. Some features may not work.",
+                                Snackbar.LENGTH_INDEFINITE
+                            )
+                            val snackbarView = snackbar.view
+                            val params = snackbarView.layoutParams as FrameLayout.LayoutParams
+                            params.gravity = Gravity.TOP // Set posisi ke atas
+                            params.topMargin = 16 // Tambahkan margin atas jika diperlukan
+                            snackbarView.layoutParams = params
+                            snackbar.show()
+
+                        }
+                    } else {
+                        snackbar?.dismiss()
+                        snackbar = null
+                        viewModel.loadUserProfile()
+                    }
+                    // Nonaktifkan tombol edit jika tidak terhubung
+                    binding.btnEditProfileMain.isEnabled = isConnected
+                }
+            }
+        }
+    }
+
+
 
     override fun onDestroyView() {
         super.onDestroyView()

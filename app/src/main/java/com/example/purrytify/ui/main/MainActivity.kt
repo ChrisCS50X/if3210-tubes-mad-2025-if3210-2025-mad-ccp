@@ -10,9 +10,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.viewModels
 
 class MainActivity : AppCompatActivity() {
-
+    private val networkViewModel by viewModels<NetworkViewModel>()
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,6 +24,7 @@ class MainActivity : AppCompatActivity() {
         setupNavigation()
         checkPermissions()
     }
+
 
     private fun setupNavigation() {
         // Get NavController correctly from the NavHostFragment

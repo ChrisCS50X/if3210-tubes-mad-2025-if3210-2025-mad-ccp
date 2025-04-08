@@ -1,58 +1,66 @@
-package com.example.purrytify.ui.main
+package com.tubesmobile.purrytify.util
 
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
+import android.net.NetworkRequest
+import android.os.Build
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
-class NetworkMonitor(context: Context) {
+class NetworkMonitor(private val context: Context) {
+    private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-    private val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-    private val _isConnected = MutableLiveData<Boolean>().apply {
-        postValue(isNetworkAvailable())
-    }
-    val isConnected: LiveData<Boolean> get() = _isConnected
+    private val _isConnected = MutableStateFlow(checkInitialConnection())
+    val isConnected: StateFlow<Boolean> = _isConnected
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            super.onAvailable(network)
-            _isConnected.postValue(true) // Notify network is available
+            _isConnected.value = true
         }
 
         override fun onLost(network: Network) {
-            super.onLost(network)
-            _isConnected.postValue(false) // Notify network is lost
-        }
-
-        override fun onCapabilitiesChanged(
-            network: Network,
-            networkCapabilities: NetworkCapabilities
-        ) {
-            super.onCapabilitiesChanged(network, networkCapabilities)
-            val hasInternet = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            _isConnected.postValue(hasInternet) // Update connection status
+            _isConnected.value = checkIfAnyNetworkAvailable()
         }
     }
 
-    init {
-        startMonitoring()
-    }
-
-    private fun startMonitoring() {
-        connectivityManager.registerDefaultNetworkCallback(networkCallback)
+    fun startMonitoring() {
+        val request = NetworkRequest.Builder().build()
+        connectivityManager.registerNetworkCallback(request, networkCallback)
     }
 
     fun stopMonitoring() {
         connectivityManager.unregisterNetworkCallback(networkCallback)
     }
 
-    private fun isNetworkAvailable(): Boolean {
-        val network = connectivityManager.activeNetwork ?: return false
-        val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return activeNetwork.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    private fun checkInitialConnection(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = connectivityManager.activeNetwork
+            val capabilities = connectivityManager.getNetworkCapabilities(network)
+            capabilities != null && (
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                    )
+        } else {
+            @Suppress("DEPRECATION")
+            val networkInfo = connectivityManager.activeNetworkInfo
+            networkInfo != null && networkInfo.isConnected
+        }
+    }
+
+    private fun checkIfAnyNetworkAvailable(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = connectivityManager.activeNetwork
+            val capabilities = connectivityManager.getNetworkCapabilities(network)
+            capabilities != null && (
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                    )
+        } else {
+            @Suppress("DEPRECATION")
+            val networkInfo = connectivityManager.activeNetworkInfo
+            networkInfo != null && networkInfo.isConnected
+        }
     }
 }
