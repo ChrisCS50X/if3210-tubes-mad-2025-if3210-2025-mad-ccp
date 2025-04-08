@@ -8,6 +8,8 @@ import com.example.purrytify.data.model.RefreshTokenRequest
 import com.example.purrytify.data.model.UserProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.example.purrytify.util.executeWithTokenRefresh
+import android.util.Log
 
 class UserRepository(private val tokenManager: TokenManager) {
 
@@ -33,16 +35,25 @@ class UserRepository(private val tokenManager: TokenManager) {
     }
 
     suspend fun getUserProfile(): Result<UserProfile> {
+        if (!tokenManager.isLoggedIn()) {
+            return Result.failure(IllegalStateException("Not logged in"))
+        }
+
+        return executeWithTokenRefresh(this) {
+            val token = tokenManager.getToken()!!
+            apiService.getUserProfile("Bearer $token")
+        }
+    }
+
+    suspend fun verifyToken(): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                val token = tokenManager.getToken() ?: return@withContext Result.failure(
-                    IllegalStateException("No authentication token available")
-                )
-
-                val response = apiService.getUserProfile("Bearer $token")
-                Result.success(response)
+                val token = tokenManager.getToken() ?: return@withContext false
+                val response = apiService.verifyToken("Bearer $token")
+                response.isSuccessful
             } catch (e: Exception) {
-                Result.failure(e)
+                Log.e("UserRepository", "Error verifying token", e)
+                false
             }
         }
     }
@@ -63,19 +74,8 @@ class UserRepository(private val tokenManager: TokenManager) {
 
                 Result.success(response)
             } catch (e: Exception) {
+                Log.e("UserRepository", "Failed to refresh token", e)
                 Result.failure(e)
-            }
-        }
-    }
-
-    suspend fun verifyToken(): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                val token = tokenManager.getToken() ?: return@withContext false
-                val response = apiService.verifyToken("Bearer $token")
-                response.isSuccessful
-            } catch (e: Exception) {
-                false
             }
         }
     }

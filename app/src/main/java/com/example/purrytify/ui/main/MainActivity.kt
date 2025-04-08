@@ -10,19 +10,39 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
+import com.example.purrytify.service.TokenRefreshManager
+import com.example.purrytify.service.TokenRefreshWorker
+import android.content.IntentFilter
+import android.content.Context
+import android.util.Log
+import com.example.purrytify.data.local.TokenManager
+
 import androidx.activity.viewModels
 
 class MainActivity : AppCompatActivity() {
     private val networkViewModel by viewModels<NetworkViewModel>()
     private lateinit var binding: ActivityMainBinding
+    private lateinit var tokenRefreshManager: TokenRefreshManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        val tokenManager = TokenManager(this)
+        val currentToken = tokenManager.getToken()
+        Log.d("TokenDebug", "Current stored token: $currentToken")
+        val refreshToken = tokenManager.getRefreshToken()
+        Log.d("TokenDebug", "Current refresh token: $refreshToken")
+
         setupNavigation()
         checkPermissions()
+        setupTokenRefresh()
+    }
+
+    private fun setupTokenRefresh() {
+        tokenRefreshManager = TokenRefreshManager(this)
+        tokenRefreshManager.scheduleTokenRefresh()
     }
 
 
@@ -74,6 +94,10 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Storage permission is required to add songs", Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 
     companion object {
