@@ -82,18 +82,17 @@ class ProfileFragment : Fragment() {
                 networkViewModel.isConnected.collectLatest { isConnected ->
                     if (!isConnected) {
                         if (snackbar == null) {
-                            val snackbar = Snackbar.make(
+                            snackbar = Snackbar.make(
                                 binding.root,
                                 "No internet connection. Some features may not work.",
                                 Snackbar.LENGTH_INDEFINITE
                             )
-                            val snackbarView = snackbar.view
+                            val snackbarView = snackbar!!.view
                             val params = snackbarView.layoutParams as FrameLayout.LayoutParams
                             params.gravity = Gravity.TOP // Set posisi ke atas
                             params.topMargin = 16 // Tambahkan margin atas jika diperlukan
                             snackbarView.layoutParams = params
-                            snackbar.show()
-
+                            snackbar!!.show()
                         }
                     } else {
                         snackbar?.dismiss()
@@ -106,6 +105,7 @@ class ProfileFragment : Fragment() {
             }
         }
     }
+
 
 
 
