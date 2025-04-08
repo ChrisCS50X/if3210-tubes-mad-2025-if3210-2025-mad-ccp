@@ -32,12 +32,11 @@ class ProfileFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-//        val tokenManager = TokenManager.getInstance(requireContext().applicationContext)
-//        Log.d("Token", "Token get: ${tokenManager.getToken()}")
-//        val userRepository = UserRepository.getInstance(tokenManager)
-//        val factory = ProfileViewModelFactory(userRepository)
-//
-//        viewModel = ViewModelProvider(this, factory)[ProfileViewModel::class.java]
+        val tokenManager = TokenManager(requireContext().applicationContext)
+        val userRepository = UserRepository(tokenManager)
+        val factory = ProfileViewModelFactory(userRepository)
+
+        viewModel = ViewModelProvider(this, factory)[ProfileViewModel::class.java]
 
         observeProfile()
         viewModel.loadUserProfile()
