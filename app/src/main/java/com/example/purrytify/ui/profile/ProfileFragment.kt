@@ -32,6 +32,8 @@ class ProfileFragment : Fragment() {
     private lateinit var viewModel: ProfileViewModel
     private val networkViewModel: NetworkViewModel by activityViewModels()
 
+    private var snackbar: Snackbar? = null
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -76,7 +78,6 @@ class ProfileFragment : Fragment() {
     }
 
     private fun observeNetworkStatus() {
-        var snackbar: Snackbar? = null
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 networkViewModel.isConnected.collectLatest { isConnected ->
@@ -110,7 +111,15 @@ class ProfileFragment : Fragment() {
 
 
     override fun onDestroyView() {
+        snackbar?.dismiss() // Pastikan Snackbar dihapus
+        snackbar = null // Hindari referensi yang tidak diperlukan
         super.onDestroyView()
         _binding = null
+    }
+
+    override fun onPause() {
+        super.onPause()
+        snackbar?.dismiss() // Dismiss Snackbar saat fragment tidak aktif
+        snackbar = null
     }
 }
