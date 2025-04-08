@@ -23,6 +23,10 @@ import com.example.purrytify.ui.main.NetworkViewModel
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import android.content.Intent
+import androidx.appcompat.app.AlertDialog
+import com.example.purrytify.R
+import com.example.purrytify.ui.login.LoginActivity
 
 class ProfileFragment : Fragment() {
 
@@ -53,6 +57,8 @@ class ProfileFragment : Fragment() {
 
         observeProfile()
         observeNetworkStatus()
+        setupLogoutButton()
+        observeLogoutEvent()
     }
 
 
@@ -107,7 +113,41 @@ class ProfileFragment : Fragment() {
         }
     }
 
+    private fun setupLogoutButton() {
+        binding.btnLogout.setOnClickListener {
+            // Show confirmation dialog
+            showLogoutConfirmationDialog()
+        }
+    }
 
+    private fun showLogoutConfirmationDialog() {
+        val builder = AlertDialog.Builder(requireContext(), R.style.AlertDialogTheme)
+        builder.setTitle("Logout")
+            .setMessage("Are you sure you want to logout?")
+            .setPositiveButton("Yes") { _, _ ->
+                viewModel.logout()
+            }
+            .setNegativeButton("No") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun observeLogoutEvent() {
+        viewModel.logoutEvent.observe(viewLifecycleOwner) { shouldLogout ->
+            if (shouldLogout) {
+                // Navigate to login screen
+                navigateToLogin()
+            }
+        }
+    }
+
+    private fun navigateToLogin() {
+        val intent = Intent(requireContext(), LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        requireActivity().finish()
+    }
 
 
     override fun onDestroyView() {

@@ -11,11 +11,14 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
 import com.example.purrytify.service.TokenRefreshManager
-import com.example.purrytify.service.TokenRefreshWorker
-import android.content.IntentFilter
-import android.content.Context
+import android.content.Intent
 import android.util.Log
 import com.example.purrytify.data.local.TokenManager
+import com.example.purrytify.data.repository.UserRepository
+import com.example.purrytify.ui.login.LoginActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+
 
 import androidx.activity.viewModels
 
@@ -26,18 +29,73 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
+        // Just log tokens
         val tokenManager = TokenManager(this)
         val currentToken = tokenManager.getToken()
         Log.d("TokenDebug", "Current stored token: $currentToken")
         val refreshToken = tokenManager.getRefreshToken()
         Log.d("TokenDebug", "Current refresh token: $refreshToken")
 
-        setupNavigation()
-        checkPermissions()
-        setupTokenRefresh()
+        // Check token validity before showing any UI
+        verifyTokenAndNavigate()
+    }
+
+    private fun verifyTokenAndNavigate() {
+        val tokenManager = TokenManager(this)
+
+        // Debug logging
+        val currentToken = tokenManager.getToken()
+        Log.d("TokenDebug", "Current stored token: $currentToken")
+        val refreshToken = tokenManager.getRefreshToken()
+        Log.d("TokenDebug", "Current refresh token: $refreshToken")
+
+        // If no token exists, go to login
+        if (!tokenManager.isLoggedIn()) {
+            navigateToLogin()
+            return
+        }
+
+        // Check if token is valid
+        lifecycleScope.launch {
+            val userRepository = UserRepository(tokenManager)
+            val isTokenValid = userRepository.verifyToken()
+
+            if (!isTokenValid) {
+                Log.d("TokenDebug", "Token invalid, attempting refresh")
+                // Try to refresh the token
+                val refreshResult = userRepository.refreshToken()
+
+                if (refreshResult.isFailure) {
+                    Log.d("TokenDebug", "Token refresh failed, navigating to login")
+                    // Couldn't refresh token, go to login
+                    tokenManager.clearTokens()
+                    navigateToLogin()
+                    return@launch
+                }
+            }
+
+            // Token is valid or was refreshed successfully
+            Log.d("TokenDebug", "Token valid or refreshed, continuing to main app")
+            continueToMainApp()
+        }
+    }
+
+    private fun navigateToLogin() {
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
+
+    private fun continueToMainApp() {
+        runOnUiThread {
+            binding = ActivityMainBinding.inflate(layoutInflater)
+            setContentView(binding.root)
+            setupNavigation()
+            checkPermissions()
+            setupTokenRefresh()
+        }
     }
 
     private fun setupTokenRefresh() {

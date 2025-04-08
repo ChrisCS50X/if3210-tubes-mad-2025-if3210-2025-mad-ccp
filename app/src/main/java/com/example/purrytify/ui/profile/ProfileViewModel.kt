@@ -13,6 +13,8 @@ class ProfileViewModel(private val userRepository: UserRepository) : ViewModel()
 
     private val _profileState = MutableLiveData<ProfileState>()
     val profileState: LiveData<ProfileState> = _profileState
+    private val _logoutEvent = MutableLiveData<Boolean>()
+    val logoutEvent: LiveData<Boolean> = _logoutEvent
 
     fun loadUserProfile() {
         _profileState.value = ProfileState.Loading
@@ -23,6 +25,13 @@ class ProfileViewModel(private val userRepository: UserRepository) : ViewModel()
                 result.isSuccess -> ProfileState.Success(result.getOrThrow())
                 else -> ProfileState.Error(result.exceptionOrNull()?.message ?: "Failed to load profile")
             }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            userRepository.logout()
+            _logoutEvent.postValue(true)
         }
     }
 }
