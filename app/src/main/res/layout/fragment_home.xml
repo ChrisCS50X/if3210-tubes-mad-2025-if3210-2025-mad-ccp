@@ -23,6 +23,18 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
+        <TextView
+            android:id="@+id/tvNewSongsEmpty"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="No new songs available"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/tvNewSongs"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvNewSongs"
             android:layout_width="0dp"
@@ -46,6 +58,18 @@
             app:layout_constraintTop_toBottomOf="@id/rvNewSongs"
             app:layout_constraintStart_toStartOf="parent" />
 
+        <TextView
+            android:id="@+id/tvRecentlyPlayedEmpty"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="No recently played songs"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/tvRecentlyPlayed"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvRecentlyPlayed"
             android:layout_width="0dp"
@@ -54,6 +78,16 @@
             android:layout_marginTop="8dp"
             android:layout_marginBottom="100dp"
             app:layout_constraintTop_toBottomOf="@id/tvRecentlyPlayed"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />

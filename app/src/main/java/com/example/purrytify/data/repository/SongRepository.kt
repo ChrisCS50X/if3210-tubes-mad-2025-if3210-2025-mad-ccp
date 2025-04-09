@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import com.example.purrytify.data.mapper.toDomainModel
 import com.example.purrytify.data.mapper.toEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 
 class SongRepository(private val songDao: SongDao) {
     val allSongs = songDao.getAllSongs().map { entities ->
@@ -27,5 +30,25 @@ class SongRepository(private val songDao: SongDao) {
 
     suspend fun insertSong(song: Song): Long {
         return songDao.insertSong(song.toEntity())
+    }
+
+    suspend fun getNewSongs(limit: Int = 10): List<Song> {
+        return withContext(Dispatchers.IO) {
+            val songEntities = songDao.getLatestSongs(limit)
+            songEntities.map { it.toDomainModel() }
+        }
+    }
+
+    suspend fun getRecentlyPlayed(limit: Int = 10): List<Song> {
+        return withContext(Dispatchers.IO) {
+            val songEntities = songDao.getRecentlyPlayed(limit)
+            songEntities.map { it.toDomainModel() }
+        }
+    }
+
+    suspend fun updateLastPlayed(songId: Long) {
+        withContext(Dispatchers.IO) {
+            songDao.updateLastPlayed(songId, System.currentTimeMillis())
+        }
     }
 }

@@ -20,7 +20,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     val likedSongs: LiveData<List<Song>>
 
     init {
-        val songDao = AppDatabase.getDatabase(application).songDao()
+        val songDao = AppDatabase.getInstance(application).songDao()
         repository = SongRepository(songDao)
 
         allSongs = repository.allSongs.asLiveData()

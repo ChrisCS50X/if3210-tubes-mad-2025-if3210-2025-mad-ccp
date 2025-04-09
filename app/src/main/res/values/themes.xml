@@ -14,6 +14,10 @@
         <!-- Status bar color -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
 
+        <!-- Edge-to-edge display -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:navigationBarColor">@color/dark_gray</item>
+
         <!-- Customize your theme here -->
     </style>
 </resources>

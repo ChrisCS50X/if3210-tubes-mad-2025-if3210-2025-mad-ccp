@@ -8,7 +8,7 @@ fun SongEntity.toDomainModel(): Song {
         id = id,
         title = title,
         artist = artist,
-        coverUrl = coverPath,
+        coverUrl = coverUrl,
         filePath = filePath,
         duration = duration,
         isLiked = isLiked
@@ -20,7 +20,7 @@ fun Song.toEntity(): SongEntity {
         id = id,
         title = title,
         artist = artist,
-        coverPath = coverUrl,
+        coverUrl = coverUrl,
         filePath = filePath,
         duration = duration,
         isLiked = isLiked

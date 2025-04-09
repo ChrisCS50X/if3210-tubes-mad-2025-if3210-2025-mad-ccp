@@ -30,13 +30,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Just log tokens
-        val tokenManager = TokenManager(this)
-        val currentToken = tokenManager.getToken()
-        Log.d("TokenDebug", "Current stored token: $currentToken")
-        val refreshToken = tokenManager.getRefreshToken()
-        Log.d("TokenDebug", "Current refresh token: $refreshToken")
-
         // Check token validity before showing any UI
         verifyTokenAndNavigate()
     }
