@@ -7,8 +7,9 @@ import com.bumptech.glide.Glide
 import com.example.purrytify.databinding.ItemNewSongBinding
 import com.example.purrytify.data.model.Song
 
-class NewSongsAdapter(private val songs: List<Song>) :
-    RecyclerView.Adapter<NewSongsAdapter.NewSongViewHolder>() {
+class NewSongsAdapter(
+    private val songs: List<Song>
+) : RecyclerView.Adapter<NewSongsAdapter.NewSongViewHolder>() {
 
     inner class NewSongViewHolder(private val binding: ItemNewSongBinding) :
         RecyclerView.ViewHolder(binding.root) {

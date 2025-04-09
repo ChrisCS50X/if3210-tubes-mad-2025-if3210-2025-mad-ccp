@@ -81,6 +81,8 @@ dependencies {
     // WorkManager
     implementation ("androidx.work:work-runtime-ktx:2.8.1")
 
+    implementation ("androidx.fragment:fragment-ktx:1.6.2")
+
 
     // Testing
     testImplementation(libs.junit)
