@@ -19,6 +19,9 @@ class HomeViewModel(private val songRepository: SongRepository) : ViewModel() {
     private val _isLoading = MutableLiveData<Boolean>()
     val isLoading: LiveData<Boolean> = _isLoading
 
+    private val _currentlyPlayingSong = MutableLiveData<Song?>()
+    val currentlyPlayingSong: LiveData<Song?> = _currentlyPlayingSong
+
     fun loadHomeData() {
         _isLoading.value = true
         viewModelScope.launch {
@@ -37,6 +40,7 @@ class HomeViewModel(private val songRepository: SongRepository) : ViewModel() {
         viewModelScope.launch {
             try {
                 songRepository.updateLastPlayed(song.id)
+                _currentlyPlayingSong.value = song
                 // Here you would typically notify a music service to play this song
             } catch (e: Exception) {
                 // Handle playback error

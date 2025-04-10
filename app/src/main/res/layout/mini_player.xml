@@ -4,7 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="72dp"
     android:background="@drawable/rounded_image_mini"
-    android:padding="8dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="8dp"
+    android:paddingStart="8dp"
     android:clickable="true"
     android:focusable="true">
 
@@ -16,8 +18,9 @@
         android:contentDescription="Cover"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/miniSeekBar"
         android:layout_marginEnd="8dp"
+        android:layout_marginBottom="5dp"
         android:background="@drawable/rounded_image" />
 
     <LinearLayout
@@ -28,9 +31,10 @@
         app:layout_constraintStart_toEndOf="@id/ivMiniCover"
         app:layout_constraintEnd_toStartOf="@id/btnAddLiked"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/miniSeekBar"
         android:layout_marginEnd="8dp"
-        android:layout_marginStart="8dp">
+        android:layout_marginStart="8dp"
+        android:layout_marginBottom="5dp">
 
         <TextView
             android:id="@+id/tvMiniTitle"
@@ -62,9 +66,10 @@
         android:src="@drawable/ic_plus"
         android:scaleType="centerInside"
         android:layout_marginEnd="8dp"
+        android:layout_marginBottom="5dp"
         app:layout_constraintEnd_toStartOf="@id/btnMiniPlayPause"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent" />
+        app:layout_constraintBottom_toTopOf="@+id/miniSeekBar" />
 
     <ImageButton
         android:id="@+id/btnMiniPlayPause"
@@ -74,8 +79,22 @@
         android:src="@android:drawable/ic_media_play"
         android:scaleType="centerInside"
         app:tint="@android:color/white"
+        android:layout_marginBottom="5dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/miniSeekBar" />
+
+    <SeekBar
+        android:id="@+id/miniSeekBar"
+        android:layout_width="0dp"
+        android:layout_height="3dp"
+        android:progressTint="#FFFFFF"
+        android:thumb="@null"
+        android:paddingStart="0dp"
+        android:paddingEnd="0dp"
+        android:layout_marginTop="0dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

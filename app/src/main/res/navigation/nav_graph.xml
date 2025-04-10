@@ -9,17 +9,41 @@
         android:id="@+id/navigation_home"
         android:name="com.example.purrytify.ui.home.HomeFragment"
         android:label="@string/home"
-        tools:layout="@layout/fragment_home" />
+        tools:layout="@layout/fragment_home">
+        <!-- Add the navigation action to now_playing fragment -->
+        <action
+            android:id="@+id/action_navigation_home_to_now_playing"
+            app:destination="@id/navigation_now_playing" />
+    </fragment>
 
     <fragment
         android:id="@+id/navigation_library"
         android:name="com.example.purrytify.ui.library.LibraryFragment"
         android:label="@string/library"
-        tools:layout="@layout/fragment_library" />
+        tools:layout="@layout/fragment_library">
+        <!-- Optional: Add action from library to now playing as well -->
+        <action
+            android:id="@+id/action_navigation_library_to_now_playing"
+            app:destination="@id/navigation_now_playing" />
+    </fragment>
 
     <fragment
         android:id="@+id/navigation_profile"
         android:name="com.example.purrytify.ui.profile.ProfileFragment"
         android:label="@string/profile"
         tools:layout="@layout/fragment_profile" />
+
+    <fragment
+        android:id="@+id/navigation_now_playing"
+        android:name="com.example.purrytify.ui.player.NowPlayingFragment"
+        android:label="Now Playing"
+        tools:layout="@layout/fragment_now_playing">
+        <argument
+            android:name="song"
+            app:argType="com.example.purrytify.data.model.Song" />
+        <argument
+            android:name="isPlaying"
+            app:argType="boolean"
+            android:defaultValue="false" />
+    </fragment>
 </navigation>
