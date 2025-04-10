@@ -8,7 +8,8 @@ import com.example.purrytify.databinding.ItemNewSongBinding
 import com.example.purrytify.data.model.Song
 
 class NewSongsAdapter(
-    private val songs: List<Song>
+    private val songs: List<Song>,
+    private val onSongClick: (Song) -> Unit
 ) : RecyclerView.Adapter<NewSongsAdapter.NewSongViewHolder>() {
 
     inner class NewSongViewHolder(private val binding: ItemNewSongBinding) :
@@ -20,6 +21,11 @@ class NewSongsAdapter(
             Glide.with(binding.root)
                 .load(song.coverUrl)
                 .into(binding.ivCover)
+
+            // Set click listener on the item
+            binding.root.setOnClickListener {
+                onSongClick(song)
+            }
         }
     }
 

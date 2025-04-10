@@ -1,5 +1,7 @@
 package com.example.purrytify.ui.home
 
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,6 +15,7 @@ import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.databinding.FragmentHomeBinding
 import com.example.purrytify.ui.adapter.NewSongsAdapter
 import com.example.purrytify.ui.adapter.RecentlyPlayedAdapter
+import androidx.core.net.toUri
 
 class HomeFragment : Fragment() {
 
@@ -46,7 +49,6 @@ class HomeFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        // Observe new songs
         viewModel.newSongs.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvNewSongs.visibility = View.VISIBLE
@@ -54,7 +56,21 @@ class HomeFragment : Fragment() {
 
                 binding.rvNewSongs.apply {
                     layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-                    adapter = NewSongsAdapter(songs)
+                    adapter = NewSongsAdapter(songs) { song ->
+                        viewModel.playSong(song)
+
+                        try {
+                            val audioUri = song.filePath.toUri()
+                            val mediaPlayer = MediaPlayer()
+                            mediaPlayer.setDataSource(requireContext(), audioUri)
+                            mediaPlayer.prepare()
+                            mediaPlayer.start()
+
+                            Toast.makeText(requireContext(), "Now playing: ${song.title}", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(requireContext(), "Error playing song: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
             } else {
                 binding.rvNewSongs.visibility = View.GONE
@@ -62,7 +78,6 @@ class HomeFragment : Fragment() {
             }
         }
 
-        // Observe recently played songs
         viewModel.recentlyPlayed.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvRecentlyPlayed.visibility = View.VISIBLE
@@ -72,7 +87,18 @@ class HomeFragment : Fragment() {
                     layoutManager = LinearLayoutManager(context)
                     adapter = RecentlyPlayedAdapter(songs) { song ->
                         viewModel.playSong(song)
-                        Toast.makeText(requireContext(), "Now playing: ${song.title}", Toast.LENGTH_SHORT).show()
+
+                        try {
+                            val audioUri = song.filePath.toUri()
+                            val mediaPlayer = MediaPlayer()
+                            mediaPlayer.setDataSource(requireContext(), audioUri)
+                            mediaPlayer.prepare()
+                            mediaPlayer.start()
+
+                            Toast.makeText(requireContext(), "Now playing: ${song.title}", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(requireContext(), "Error playing song: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             } else {
@@ -81,7 +107,6 @@ class HomeFragment : Fragment() {
             }
         }
 
-        // Handle loading state
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
