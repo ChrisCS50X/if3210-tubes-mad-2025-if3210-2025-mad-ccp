@@ -10,7 +10,6 @@
         android:name="com.example.purrytify.ui.home.HomeFragment"
         android:label="@string/home"
         tools:layout="@layout/fragment_home">
-        <!-- Add the navigation action to now_playing fragment -->
         <action
             android:id="@+id/action_navigation_home_to_now_playing"
             app:destination="@id/navigation_now_playing" />
@@ -21,7 +20,6 @@
         android:name="com.example.purrytify.ui.library.LibraryFragment"
         android:label="@string/library"
         tools:layout="@layout/fragment_library">
-        <!-- Optional: Add action from library to now playing as well -->
         <action
             android:id="@+id/action_navigation_library_to_now_playing"
             app:destination="@id/navigation_now_playing" />

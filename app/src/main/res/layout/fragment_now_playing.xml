@@ -38,7 +38,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvNowPlaying"
-        app:layout_constraintWidth_percent="0.8"
+        app:layout_constraintWidth_percent="1"
         tools:src="@tools:sample/avatars" />
 
     <TextView
@@ -47,7 +47,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:ellipsize="end"
-        android:gravity="center"
+        android:gravity="start"
         android:maxLines="1"
         android:textColor="#FFFFFF"
         android:textSize="20sp"
@@ -63,7 +63,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:ellipsize="end"
-        android:gravity="center"
+        android:gravity="start"
         android:maxLines="1"
         android:textColor="#AAAAAA"
         android:textSize="16sp"
@@ -127,9 +127,10 @@
             android:id="@+id/btnPlayPause"
             android:layout_width="72dp"
             android:layout_height="72dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/rounded_white_background"
             android:src="@android:drawable/ic_media_pause"
-            app:tint="@color/white" />
+            android:padding="16dp"
+            app:tint="#000000" />
 
         <ImageButton
             android:id="@+id/btnNext"

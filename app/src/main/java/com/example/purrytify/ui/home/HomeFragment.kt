@@ -126,12 +126,10 @@ class HomeFragment : Fragment() {
             binding.miniPlayer.btnMiniPlayPause.setImageResource(android.R.drawable.ic_media_pause)
             binding.miniPlayer.ivMiniCover.setImageURI(song.coverUrl?.toUri())
 
-            // Initialize and start SeekBar updates
             binding.miniPlayer.miniSeekBar.max = mediaPlayer?.duration ?: 0
             handler.removeCallbacks(updateSeekBar)
             handler.postDelayed(updateSeekBar, 0)
 
-            Toast.makeText(requireContext(), "Now playing: ${song.title}", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Error playing song: ${e.message}", Toast.LENGTH_SHORT).show()
         }
