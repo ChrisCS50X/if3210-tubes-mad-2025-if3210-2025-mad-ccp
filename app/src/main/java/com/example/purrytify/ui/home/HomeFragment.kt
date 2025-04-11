@@ -49,7 +49,6 @@ class HomeFragment : Fragment() {
 
         setupViewModel()
         observeViewModel()
-        setupMiniPlayer()
         homeViewModel.loadHomeData()
     }
 
@@ -59,28 +58,6 @@ class HomeFragment : Fragment() {
 
         val viewModelFactory = HomeViewModelFactory(songRepository)
         homeViewModel = ViewModelProvider(this, viewModelFactory)[HomeViewModel::class.java]
-    }
-
-    private fun setupMiniPlayer() {
-        binding.miniPlayer.btnMiniPlayPause.setOnClickListener {
-            musicPlayerViewModel.togglePlayPause()
-        }
-
-        binding.miniPlayer.root.setOnClickListener {
-            musicPlayerViewModel.currentSong.value?.let { song ->
-                navigateToNowPlaying(song)
-            }
-        }
-
-        // Update mini player seek bar with current progress
-        musicPlayerViewModel.progress.observe(viewLifecycleOwner) { progress ->
-            binding.miniPlayer.miniSeekBar.progress = progress
-        }
-
-        // Update seek bar max value when duration changes
-        musicPlayerViewModel.duration.observe(viewLifecycleOwner) { duration ->
-            binding.miniPlayer.miniSeekBar.max = duration
-        }
     }
 
     private fun observeViewModel() {
@@ -122,45 +99,6 @@ class HomeFragment : Fragment() {
         homeViewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
-
-        // Observe music player
-        musicPlayerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
-            song?.let {
-                updateMiniPlayer(it)
-                binding.miniPlayer.root.visibility = View.VISIBLE
-            } ?: run {
-                binding.miniPlayer.root.visibility = View.GONE
-            }
-        }
-
-        musicPlayerViewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
-            val icon = if (isPlaying) {
-                R.drawable.ic_pause // Create this resource
-            } else {
-                R.drawable.ic_play // Create this resource
-            }
-            binding.miniPlayer.btnMiniPlayPause.setImageResource(icon)
-        }
-    }
-
-    private fun updateMiniPlayer(song: Song) {
-        binding.miniPlayer.tvMiniTitle.text = song.title
-        binding.miniPlayer.tvMiniArtist.text = song.artist
-
-        // Load cover art with Glide
-        Glide.with(this)
-            .load(song.coverUrl)
-            .placeholder(R.drawable.placeholder_album) // Create this resource
-            .error(R.drawable.placeholder_album)
-            .into(binding.miniPlayer.ivMiniCover)
-    }
-
-    private fun navigateToNowPlaying(song: Song) {
-        val action = HomeFragmentDirections.actionNavigationHomeToNowPlaying(
-            song = song,
-            isPlaying = musicPlayerViewModel.isPlaying.value ?: false
-        )
-        findNavController().navigate(action)
     }
 
     override fun onDestroyView() {

@@ -209,44 +209,95 @@ class MediaPlayerService : LifecycleService() {
     }
 
     fun play() {
-        if (requestAudioFocus()) {
-            Log.d(TAG, "play: Audio focus granted, starting playback")
-            mediaPlayer?.let { player ->
-                try {
-                    Log.d(TAG, "play: About to call player.start()")
-                    player.start()
-                    Log.d(TAG, "play: player.start() called, isPlaying: ${player.isPlaying}")
-                    _isPlaying.postValue(true)
-                    startProgressUpdates()
-                    updateNotification()
-                } catch (e: IllegalStateException) {
-                    Log.e(TAG, "play: IllegalStateException", e)
+        Log.d(TAG, "play: Method called, current player state: ${mediaPlayer?.isPlaying}")
+
+        if (mediaPlayer == null) {
+            Log.e(TAG, "play: Cannot play - MediaPlayer is null")
+            return
+        }
+
+        // Try up to 3 times to get audio focus
+        var focusGranted = false
+        var attempts = 0
+        while (!focusGranted && attempts < 3) {
+            focusGranted = requestAudioFocus()
+            attempts++
+            if (!focusGranted && attempts < 3) {
+                Log.d(TAG, "play: Audio focus denied, retrying (attempt $attempts)")
+                try { Thread.sleep(100) } catch (e: InterruptedException) { }
+            }
+        }
+
+        if (focusGranted) {
+            Log.d(TAG, "play: Audio focus granted after $attempts attempts, starting playback")
+            try {
+                mediaPlayer?.let { player ->
+                    if (!player.isPlaying) {
+                        Log.d(TAG, "play: About to call player.start()")
+                        player.start()
+                        Log.d(TAG, "play: player.start() called, isPlaying: ${player.isPlaying}")
+                        _isPlaying.postValue(true)
+                        startProgressUpdates()
+                        updateNotification()
+                    }
                 }
-            } ?: run {
-                Log.e(TAG, "play: Cannot play - MediaPlayer is null")
+            } catch (e: IllegalStateException) {
+                Log.e(TAG, "play: IllegalStateException", e)
+
+                // Try to recover
+                _currentSong.value?.let { song ->
+                    Log.d(TAG, "play: Attempting to recover")
+                    prepareMediaPlayer(song)
+                }
             }
         } else {
-            Log.e(TAG, "play: Cannot play - audio focus denied")
+            Log.e(TAG, "play: Cannot play - audio focus denied after $attempts attempts")
+        }
+    }
+
+
+    private fun prepareMediaPlayer(song: Song) {
+        try {
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build()
+                )
+
+                val uri = song.filePath.toUri()
+                setDataSource(applicationContext, uri)
+                prepare()
+
+                // Don't automatically start playing since this is just preparation
+                _duration.postValue(duration)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "prepareMediaPlayer: Error preparing player", e)
         }
     }
 
     fun pause() {
         Log.d(TAG, "pause: Pausing playback")
-        mediaPlayer?.let { player ->
-            if (player.isPlaying) {
-                try {
+        try {
+            mediaPlayer?.let { player ->
+                if (player.isPlaying) {
                     player.pause()
                     Log.d(TAG, "pause: Playback paused")
-                } catch (e: IllegalStateException) {
-                    Log.e(TAG, "pause: IllegalStateException", e)
+                } else {
+                    Log.d(TAG, "pause: Player not playing, nothing to pause")
                 }
-            } else {
-                Log.d(TAG, "pause: Player not playing, nothing to pause")
             }
+            _isPlaying.postValue(false)
+            stopProgressUpdates()
+            updateNotification()
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "pause: IllegalStateException", e)
+            // Reset the player if in an invalid state
+            _currentSong.value?.let { prepareMediaPlayer(it) }
         }
-        _isPlaying.postValue(false)
-        stopProgressUpdates()
-        updateNotification()
     }
 
     fun seekTo(position: Int) {
@@ -286,25 +337,46 @@ class MediaPlayerService : LifecycleService() {
     }
 
     private fun requestAudioFocus(): Boolean {
+        // Don't abandon audio focus when requesting it again - this could be causing conflicts
+        // abandonAudioFocus() - REMOVE THIS LINE
+
+        Log.d(TAG, "requestAudioFocus: Starting focus request")
+
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Log.d(TAG, "requestAudioFocus: Using new API")
-            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                .setOnAudioFocusChangeListener { focusChange ->
-                    Log.d(TAG, "Audio focus changed: $focusChange")
-                    handleAudioFocusChange(focusChange)
-                }
-                .setWillPauseWhenDucked(true)
-                .setAcceptsDelayedFocusGain(true)
-                .build()
+            // Create a new request only if we don't already have one
+            if (audioFocusRequest == null) {
+                Log.d(TAG, "requestAudioFocus: Creating new AudioFocusRequest")
+                audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setOnAudioFocusChangeListener { focusChange ->
+                        Log.d(TAG, "Audio focus changed: $focusChange")
+                        // Add a small delay to avoid reacting too quickly to focus changes
+                        // that might be temporary or system-induced
+                        mainHandler.postDelayed({
+                            if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+                                Log.d(TAG, "Delayed handling of AUDIOFOCUS_LOSS")
+                                handleAudioFocusChange(focusChange)
+                            } else {
+                                handleAudioFocusChange(focusChange)
+                            }
+                        }, 200) // 200ms delay for AUDIOFOCUS_LOSS
+                    }
+                    .build()
+            }
 
             audioManager?.requestAudioFocus(audioFocusRequest!!)
         } else {
             @Suppress("DEPRECATION")
-            Log.d(TAG, "requestAudioFocus: Using legacy API")
             audioManager?.requestAudioFocus(
                 { focusChange ->
                     Log.d(TAG, "Audio focus changed (legacy): $focusChange")
-                    handleAudioFocusChange(focusChange)
+                    // Add a small delay for focus loss
+                    if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+                        mainHandler.postDelayed({
+                            handleAudioFocusChange(focusChange)
+                        }, 200)
+                    } else {
+                        handleAudioFocusChange(focusChange)
+                    }
                 },
                 AudioManager.STREAM_MUSIC,
                 AudioManager.AUDIOFOCUS_GAIN
@@ -327,27 +399,30 @@ class MediaPlayerService : LifecycleService() {
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 Log.d(TAG, "handleAudioFocusChange: AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK")
-                mediaPlayer?.setVolume(0.3f, 0.3f) // Lower volume when ducking
+                // Don't pause, just lower volume
+                mediaPlayer?.setVolume(0.3f, 0.3f)
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 Log.d(TAG, "handleAudioFocusChange: AUDIOFOCUS_GAIN")
                 mediaPlayer?.setVolume(1.0f, 1.0f)
-                play()
+                // Only auto-play if we were previously playing
+                if (_isPlaying.value == true) {
+                    play()
+                }
             }
         }
     }
 
     private fun abandonAudioFocus() {
-        Log.d(TAG, "abandonAudioFocus: Abandoning audio focus")
+        // Only abandon if we actually have a request
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            audioFocusRequest?.let {
-                audioManager?.abandonAudioFocusRequest(it)
-                Log.d(TAG, "abandonAudioFocus: Modern API focus abandoned")
+            if (audioFocusRequest != null) {
+                Log.d(TAG, "abandonAudioFocus: Abandoning audio focus")
+                audioManager?.abandonAudioFocusRequest(audioFocusRequest!!)
             }
         } else {
             @Suppress("DEPRECATION")
             audioManager?.abandonAudioFocus(null)
-            Log.d(TAG, "abandonAudioFocus: Legacy API focus abandoned")
         }
     }
 
@@ -468,6 +543,13 @@ class MediaPlayerService : LifecycleService() {
     override fun onDestroy() {
         Log.d(TAG, "onDestroy: Service being destroyed")
         stopProgressUpdates()
+
+        // If we're playing, update isPlaying state first so observers get notified
+        if (mediaPlayer?.isPlaying == true) {
+            _isPlaying.postValue(false)
+        }
+
+        // Release media player
         mediaPlayer?.let {
             try {
                 if (it.isPlaying) it.stop()
@@ -478,9 +560,12 @@ class MediaPlayerService : LifecycleService() {
             }
         }
         mediaPlayer = null
+
+        // Clean up other resources
         mediaSession?.release()
         abandonAudioFocus()
         Log.d(TAG, "onDestroy: Cleanup complete")
+
         super.onDestroy()
     }
 

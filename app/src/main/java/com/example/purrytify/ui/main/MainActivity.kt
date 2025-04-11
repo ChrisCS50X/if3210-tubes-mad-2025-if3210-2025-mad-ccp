@@ -24,6 +24,7 @@ import com.example.purrytify.data.model.Song
 import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.ui.player.MusicPlayerViewModel
 import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
+import com.example.purrytify.NavGraphDirections
 
 
 import androidx.activity.viewModels
@@ -179,6 +180,7 @@ class MainActivity : AppCompatActivity() {
 
         // Set up mini player controls
         binding.miniPlayer.btnMiniPlayPause.setOnClickListener {
+            Log.d("MainActivity", "Play/Pause button clicked, current state: ${musicPlayerViewModel.isPlaying.value}")
             musicPlayerViewModel.togglePlayPause()
         }
 
@@ -200,9 +202,11 @@ class MainActivity : AppCompatActivity() {
 
         // Observe music player
         musicPlayerViewModel.currentSong.observe(this) { song ->
+            Log.d("MainActivity", "Current song changed: ${song?.title ?: "null"}")
             song?.let {
                 updateMiniPlayer(it)
                 binding.miniPlayerContainer.visibility = View.VISIBLE
+                Log.d("MainActivity", "Mini player should be visible now")
             } ?: run {
                 binding.miniPlayerContainer.visibility = View.GONE
             }
@@ -235,14 +239,14 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
-        // Create the bundle
-        val bundle = Bundle().apply {
-            putParcelable("song", song)
-            putBoolean("isPlaying", musicPlayerViewModel.isPlaying.value ?: false)
-        }
+        // Create the action using generated NavDirections
+        val action = NavGraphDirections.actionGlobalNavigationNowPlaying(
+            song = song,
+            isPlaying = musicPlayerViewModel.isPlaying.value ?: false
+        )
 
-        // Navigate to NowPlaying
-        navController.navigate(R.id.navigation_now_playing, bundle)
+        // Navigate using the action
+        navController.navigate(action)
     }
 
     override fun onDestroy() {

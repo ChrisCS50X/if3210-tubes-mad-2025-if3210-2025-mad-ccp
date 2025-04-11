@@ -29,18 +29,18 @@ class MusicPlayerViewModel(
     private val _isServiceConnected = MutableLiveData<Boolean>()
     val isServiceConnected: LiveData<Boolean> = _isServiceConnected
 
-    // Forward LiveData from service
-    val currentSong: LiveData<Song?>
-        get() = mediaPlayerService?.currentSong ?: MutableLiveData()
+    // Create our own internal LiveData proxies
+    private val _currentSong = MutableLiveData<Song?>()
+    val currentSong: LiveData<Song?> = _currentSong
 
-    val isPlaying: LiveData<Boolean>
-        get() = mediaPlayerService?.isPlaying ?: MutableLiveData()
+    private val _isPlaying = MutableLiveData<Boolean>()
+    val isPlaying: LiveData<Boolean> = _isPlaying
 
-    val progress: LiveData<Int>
-        get() = mediaPlayerService?.progress ?: MutableLiveData()
+    private val _progress = MutableLiveData<Int>()
+    val progress: LiveData<Int> = _progress
 
-    val duration: LiveData<Int>
-        get() = mediaPlayerService?.duration ?: MutableLiveData()
+    private val _duration = MutableLiveData<Int>()
+    val duration: LiveData<Int> = _duration
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -49,6 +49,9 @@ class MusicPlayerViewModel(
             mediaPlayerService = binder.getService()
             bound = true
             _isServiceConnected.value = true
+
+            // Start observing service LiveData and relay values
+            observeServiceLiveData()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -62,6 +65,30 @@ class MusicPlayerViewModel(
     init {
         // Bind to the service when ViewModel is created
         bindService()
+    }
+
+    private fun observeServiceLiveData() {
+        Log.d("MusicPlayerViewModel", "Setting up LiveData observers for service")
+        mediaPlayerService?.let { service ->
+            // Use observeForever since we need these observers to stay active
+            service.currentSong.observeForever { song ->
+                Log.d("MusicPlayerViewModel", "Song updated from service: ${song?.title}")
+                _currentSong.postValue(song)
+            }
+
+            service.isPlaying.observeForever { playing ->
+                Log.d("MusicPlayerViewModel", "isPlaying updated from service: $playing")
+                _isPlaying.postValue(playing)
+            }
+
+            service.progress.observeForever { prog ->
+                _progress.postValue(prog)
+            }
+
+            service.duration.observeForever { dur ->
+                _duration.postValue(dur)
+            }
+        }
     }
 
     private fun bindService() {
@@ -88,10 +115,13 @@ class MusicPlayerViewModel(
     }
 
     fun togglePlayPause() {
+        Log.d("MusicPlayerViewModel", "togglePlayPause called, current state: ${mediaPlayerService?.isPlaying?.value}")
         mediaPlayerService?.let {
             if (it.isPlaying.value == true) {
+                Log.d("MusicPlayerViewModel", "Calling pause()")
                 it.pause()
             } else {
+                Log.d("MusicPlayerViewModel", "Calling play()")
                 it.play()
             }
         }

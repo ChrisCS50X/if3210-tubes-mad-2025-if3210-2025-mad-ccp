@@ -67,7 +67,7 @@ class NowPlayingFragment : Fragment() {
         // Load album art with Glide
         Glide.with(this)
             .load(song.coverUrl)
-            .placeholder(R.drawable.placeholder_album) // Create this resource
+            .placeholder(R.drawable.placeholder_album)
             .error(R.drawable.placeholder_album)
             .into(binding.ivAlbumCover)
 
