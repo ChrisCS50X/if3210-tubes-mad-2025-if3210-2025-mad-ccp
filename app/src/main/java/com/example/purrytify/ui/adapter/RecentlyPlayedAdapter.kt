@@ -4,23 +4,36 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.example.purrytify.databinding.ItemRecentlyPlayedBinding
+import com.example.purrytify.R
 import com.example.purrytify.data.model.Song
+import com.example.purrytify.databinding.ItemSongBinding
+import java.util.concurrent.TimeUnit
 
 class RecentlyPlayedAdapter(
     private val songs: List<Song>,
     private val onItemClick: (Song) -> Unit
 ) : RecyclerView.Adapter<RecentlyPlayedAdapter.RecentlyPlayedViewHolder>() {
 
-    inner class RecentlyPlayedViewHolder(private val binding: ItemRecentlyPlayedBinding) :
+    inner class RecentlyPlayedViewHolder(private val binding: ItemSongBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(song: Song) {
-            binding.tvTitle.text = song.title
-            binding.tvArtist.text = song.artist
+            // Map to the new layout IDs
+            binding.textSongTitle.text = song.title
+            binding.textArtist.text = song.artist
+
+            // Format and display duration
+            val minutes = TimeUnit.MILLISECONDS.toMinutes(song.duration)
+            val seconds = TimeUnit.MILLISECONDS.toSeconds(song.duration) -
+                    TimeUnit.MINUTES.toSeconds(minutes)
+            binding.textDuration.text = String.format("%d:%02d", minutes, seconds)
+
+            // Load cover image
             Glide.with(binding.root)
                 .load(song.coverUrl)
-                .into(binding.ivCover)
+                .placeholder(R.drawable.placeholder_album)
+                .error(R.drawable.placeholder_album)
+                .into(binding.imageSong)
 
             binding.root.setOnClickListener {
                 onItemClick(song)
@@ -29,7 +42,7 @@ class RecentlyPlayedAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecentlyPlayedViewHolder {
-        val binding = ItemRecentlyPlayedBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding = ItemSongBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return RecentlyPlayedViewHolder(binding)
     }
 
