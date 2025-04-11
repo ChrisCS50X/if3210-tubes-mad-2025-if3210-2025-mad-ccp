@@ -6,10 +6,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.DividerItemDecoration
+import com.example.purrytify.data.local.AppDatabase
+import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.databinding.FragmentLikedSongsBinding
 import com.example.purrytify.ui.adapter.SongAdapter
+import com.example.purrytify.ui.player.MusicPlayerViewModel
+import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
 
 class LikedSongsFragment : Fragment() {
 
@@ -17,7 +22,22 @@ class LikedSongsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var songAdapter: SongAdapter
-    private val viewModel: LibraryViewModel by viewModels { LibraryViewModelFactory(requireActivity().application, requireContext().applicationContext) }
+
+    // Library ViewModel for data loading
+    private val viewModel: LibraryViewModel by viewModels {
+        LibraryViewModelFactory(requireActivity().application, requireContext().applicationContext)
+    }
+
+    // Shared music player ViewModel for playback
+    private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
+        MusicPlayerViewModelFactory(
+            requireActivity().application,
+            SongRepository(
+                AppDatabase.getInstance(requireContext()).songDao(),
+                requireContext().applicationContext
+            )
+        )
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -48,9 +68,11 @@ class LikedSongsFragment : Fragment() {
         }
 
         songAdapter.setOnItemClickListener { song ->
-            // Handle song click (play the song)
-            Toast.makeText(requireContext(), "Playing: ${song.title}", Toast.LENGTH_SHORT).show()
+            // First increment play count using LibraryViewModel
             viewModel.playSong(song)
+
+            // Then play the song using MusicPlayerViewModel
+            musicPlayerViewModel.playSong(song)
         }
     }
 
