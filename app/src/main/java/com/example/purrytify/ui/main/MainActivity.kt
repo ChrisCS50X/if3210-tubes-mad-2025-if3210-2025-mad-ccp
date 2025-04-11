@@ -174,7 +174,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupMusicPlayer() {
         // Get the ViewModel
         val database = AppDatabase.getInstance(this)
-        val repository = SongRepository(database.songDao())
+        val repository = SongRepository(database.songDao(), applicationContext)
         val factory = MusicPlayerViewModelFactory(application, repository)
         musicPlayerViewModel = ViewModelProvider(this, factory)[MusicPlayerViewModel::class.java]
 

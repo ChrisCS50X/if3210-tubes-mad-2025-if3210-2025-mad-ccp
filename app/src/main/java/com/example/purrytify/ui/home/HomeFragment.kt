@@ -31,7 +31,7 @@ class HomeFragment : Fragment() {
     private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
         MusicPlayerViewModelFactory(
             requireActivity().application,
-            SongRepository(AppDatabase.getInstance(requireContext()).songDao())
+            SongRepository(AppDatabase.getInstance(requireContext()).songDao(), requireContext().applicationContext)
         )
     }
 
