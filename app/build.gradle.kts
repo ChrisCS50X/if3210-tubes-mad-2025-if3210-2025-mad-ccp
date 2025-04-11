@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("kotlin-kapt")
+    id("androidx.navigation.safeargs.kotlin")
 }
 
 android {
@@ -57,6 +58,7 @@ dependencies {
     // Image loading
     implementation("io.coil-kt:coil:2.4.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation ("androidx.lifecycle:lifecycle-service:2.6.2")
     kapt("com.github.bumptech.glide:compiler:4.16.0")
 
     // Media playback
@@ -83,6 +85,7 @@ dependencies {
 
     implementation ("androidx.fragment:fragment-ktx:1.6.2")
 
+    implementation ("androidx.media:media:1.7.0")
 
     // Testing
     testImplementation(libs.junit)

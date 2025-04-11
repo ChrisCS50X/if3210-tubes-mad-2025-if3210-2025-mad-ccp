@@ -1,35 +1,39 @@
 package com.example.purrytify.ui.home
 
-import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.bumptech.glide.Glide
+import com.example.purrytify.R
 import com.example.purrytify.data.local.AppDatabase
+import com.example.purrytify.data.model.Song
 import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.databinding.FragmentHomeBinding
 import com.example.purrytify.ui.adapter.NewSongsAdapter
 import com.example.purrytify.ui.adapter.RecentlyPlayedAdapter
-import androidx.core.net.toUri
-import com.example.purrytify.data.model.Song
-import androidx.navigation.fragment.findNavController
-import com.example.purrytify.R
+import com.example.purrytify.ui.player.MusicPlayerViewModel
+import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
 
 class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
-    private lateinit var viewModel: HomeViewModel
-    private var mediaPlayer: MediaPlayer? = null
-    private val handler = Handler(Looper.getMainLooper())
-    private lateinit var updateSeekBar: Runnable
+
+    private lateinit var homeViewModel: HomeViewModel
+
+    // Shared music player ViewModel
+    private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
+        MusicPlayerViewModelFactory(
+            requireActivity().application,
+            SongRepository(AppDatabase.getInstance(requireContext()).songDao())
+        )
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -45,9 +49,8 @@ class HomeFragment : Fragment() {
 
         setupViewModel()
         observeViewModel()
-        setupMiniPlayerControls()
-        setupSeekBarUpdater()
-        viewModel.loadHomeData()
+        setupMiniPlayer()
+        homeViewModel.loadHomeData()
     }
 
     private fun setupViewModel() {
@@ -55,88 +58,34 @@ class HomeFragment : Fragment() {
         val songRepository = SongRepository(songDao)
 
         val viewModelFactory = HomeViewModelFactory(songRepository)
-        viewModel = ViewModelProvider(this, viewModelFactory)[HomeViewModel::class.java]
+        homeViewModel = ViewModelProvider(this, viewModelFactory)[HomeViewModel::class.java]
     }
 
-    private fun setupSeekBarUpdater() {
-        updateSeekBar = object : Runnable {
-            override fun run() {
-                try {
-                    mediaPlayer?.let { player ->
-                        if (player.isPlaying) {
-                            binding.miniPlayer.miniSeekBar.max = player.duration
-                            binding.miniPlayer.miniSeekBar.progress = player.currentPosition
-                        }
-                    }
-                    handler.postDelayed(this, 100)
-                } catch (e: Exception) {
-                    binding.miniPlayer.miniSeekBar.progress = 0
-                }
-            }
-        }
-    }
-
-    private fun setupMiniPlayerControls() {
+    private fun setupMiniPlayer() {
         binding.miniPlayer.btnMiniPlayPause.setOnClickListener {
-            mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.pause()
-                    binding.miniPlayer.btnMiniPlayPause.setImageResource(android.R.drawable.ic_media_play)
-                } else {
-                    it.start()
-                    binding.miniPlayer.btnMiniPlayPause.setImageResource(android.R.drawable.ic_media_pause)
-                }
-            }
-        }
-
-        binding.miniPlayer.miniSeekBar.setOnTouchListener { _, _ ->
-            // Disable seeking from mini player
-            true
+            musicPlayerViewModel.togglePlayPause()
         }
 
         binding.miniPlayer.root.setOnClickListener {
-            viewModel.currentlyPlayingSong.value?.let { song ->
-                val bundle = Bundle().apply {
-                    putParcelable("song", song)
-                    putBoolean("isPlaying", mediaPlayer?.isPlaying ?: false)
-                }
-
-                findNavController().navigate(R.id.action_navigation_home_to_now_playing, bundle)
+            musicPlayerViewModel.currentSong.value?.let { song ->
+                navigateToNowPlaying(song)
             }
         }
-    }
 
-    private fun playSong(song: Song) {
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
+        // Update mini player seek bar with current progress
+        musicPlayerViewModel.progress.observe(viewLifecycleOwner) { progress ->
+            binding.miniPlayer.miniSeekBar.progress = progress
+        }
 
-        try {
-            val audioUri = song.filePath.toUri()
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(requireContext(), audioUri)
-                prepare()
-                start()
-            }
-
-            viewModel.playSong(song)
-
-            binding.miniPlayer.root.visibility = View.VISIBLE
-            binding.miniPlayer.tvMiniTitle.text = song.title
-            binding.miniPlayer.tvMiniArtist.text = song.artist
-            binding.miniPlayer.btnMiniPlayPause.setImageResource(android.R.drawable.ic_media_pause)
-            binding.miniPlayer.ivMiniCover.setImageURI(song.coverUrl?.toUri())
-
-            binding.miniPlayer.miniSeekBar.max = mediaPlayer?.duration ?: 0
-            handler.removeCallbacks(updateSeekBar)
-            handler.postDelayed(updateSeekBar, 0)
-
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Error playing song: ${e.message}", Toast.LENGTH_SHORT).show()
+        // Update seek bar max value when duration changes
+        musicPlayerViewModel.duration.observe(viewLifecycleOwner) { duration ->
+            binding.miniPlayer.miniSeekBar.max = duration
         }
     }
 
     private fun observeViewModel() {
-        viewModel.newSongs.observe(viewLifecycleOwner) { songs ->
+        // Observe home data
+        homeViewModel.newSongs.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvNewSongs.visibility = View.VISIBLE
                 binding.tvNewSongsEmpty.visibility = View.GONE
@@ -144,8 +93,7 @@ class HomeFragment : Fragment() {
                 binding.rvNewSongs.apply {
                     layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
                     adapter = NewSongsAdapter(songs) { song ->
-                        viewModel.playSong(song)
-                        playSong(song)
+                        musicPlayerViewModel.playSong(song)
                     }
                 }
             } else {
@@ -154,7 +102,7 @@ class HomeFragment : Fragment() {
             }
         }
 
-        viewModel.recentlyPlayed.observe(viewLifecycleOwner) { songs ->
+        homeViewModel.recentlyPlayed.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvRecentlyPlayed.visibility = View.VISIBLE
                 binding.tvRecentlyPlayedEmpty.visibility = View.GONE
@@ -162,8 +110,7 @@ class HomeFragment : Fragment() {
                 binding.rvRecentlyPlayed.apply {
                     layoutManager = LinearLayoutManager(context)
                     adapter = RecentlyPlayedAdapter(songs) { song ->
-                        viewModel.playSong(song)
-                        playSong(song)
+                        musicPlayerViewModel.playSong(song)
                     }
                 }
             } else {
@@ -172,28 +119,52 @@ class HomeFragment : Fragment() {
             }
         }
 
-        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+        homeViewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
+
+        // Observe music player
+        musicPlayerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
+            song?.let {
+                updateMiniPlayer(it)
+                binding.miniPlayer.root.visibility = View.VISIBLE
+            } ?: run {
+                binding.miniPlayer.root.visibility = View.GONE
+            }
+        }
+
+        musicPlayerViewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
+            val icon = if (isPlaying) {
+                R.drawable.ic_pause // Create this resource
+            } else {
+                R.drawable.ic_play // Create this resource
+            }
+            binding.miniPlayer.btnMiniPlayPause.setImageResource(icon)
+        }
+    }
+
+    private fun updateMiniPlayer(song: Song) {
+        binding.miniPlayer.tvMiniTitle.text = song.title
+        binding.miniPlayer.tvMiniArtist.text = song.artist
+
+        // Load cover art with Glide
+        Glide.with(this)
+            .load(song.coverUrl)
+            .placeholder(R.drawable.placeholder_album) // Create this resource
+            .error(R.drawable.placeholder_album)
+            .into(binding.miniPlayer.ivMiniCover)
+    }
+
+    private fun navigateToNowPlaying(song: Song) {
+        val action = HomeFragmentDirections.actionNavigationHomeToNowPlaying(
+            song = song,
+            isPlaying = musicPlayerViewModel.isPlaying.value ?: false
+        )
+        findNavController().navigate(action)
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        handler.removeCallbacks(updateSeekBar)
-        mediaPlayer?.release()
-        mediaPlayer = null
         _binding = null
-    }
-
-    override fun onPause() {
-        super.onPause()
-        handler.removeCallbacks(updateSeekBar)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (mediaPlayer?.isPlaying == true) {
-            handler.postDelayed(updateSeekBar, 0)
-        }
     }
 }
