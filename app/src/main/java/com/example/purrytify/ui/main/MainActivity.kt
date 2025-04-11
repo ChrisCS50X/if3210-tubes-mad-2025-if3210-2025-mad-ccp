@@ -178,6 +178,15 @@ class MainActivity : AppCompatActivity() {
         val factory = MusicPlayerViewModelFactory(application, repository)
         musicPlayerViewModel = ViewModelProvider(this, factory)[MusicPlayerViewModel::class.java]
 
+        musicPlayerViewModel.currentSong.value?.let { song ->
+            lifecycleScope.launch {
+                val isLiked =repository.getLikedStatusBySongId(song.id)
+                binding.miniPlayer.btnAddLiked.setImageResource(
+                    if (isLiked) R.drawable.ic_minus else R.drawable.ic_plus
+                )
+            }
+        }
+
         // Set up mini player controls
         binding.miniPlayer.btnMiniPlayPause.setOnClickListener {
             Log.d("MainActivity", "Play/Pause button clicked, current state: ${musicPlayerViewModel.isPlaying.value}")
@@ -187,6 +196,22 @@ class MainActivity : AppCompatActivity() {
         binding.miniPlayer.root.setOnClickListener {
             musicPlayerViewModel.currentSong.value?.let { song ->
                 navigateToNowPlaying(song)
+            }
+        }
+
+        binding.miniPlayer.btnAddLiked.setOnClickListener {
+            musicPlayerViewModel.currentSong.value?.let { song ->
+                lifecycleScope.launch {
+                    if(repository.getLikedStatusBySongId(song.id)){
+                        repository.updateLikeStatus(song.id, false)
+                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_plus)
+                    }
+                    else{
+                        repository.updateLikeStatus(song.id, true)
+                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_minus)
+                    }
+                }
+
             }
         }
 
