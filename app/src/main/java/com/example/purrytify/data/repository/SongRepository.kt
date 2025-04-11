@@ -65,4 +65,16 @@ class SongRepository(private val songDao: SongDao, context: Context) {
     suspend fun getLikedStatusBySongId(songId: Long): Boolean {
         return songDao.getLikedStatusBySongId(songId)
     }
+
+    suspend fun getLikedSongsCount(userId: String?): Flow<Int> {
+        return songDao.getLikedSongsCountByUserId(userId)
+    }
+
+    suspend fun getOwnedSongsCount(userId: String?): Int {
+        return songDao.getOwnedSongsCountByUserId(userId)
+    }
+
+    suspend fun getHeardSongsCount(userId: String?): Int {
+        return songDao.getHeardSongsCountByUserId(userId)
+    }
 }

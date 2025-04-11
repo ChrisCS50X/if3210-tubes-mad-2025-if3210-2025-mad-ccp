@@ -26,7 +26,10 @@ import kotlinx.coroutines.launch
 import android.content.Intent
 import androidx.appcompat.app.AlertDialog
 import com.example.purrytify.R
+import com.example.purrytify.data.local.AppDatabase
+import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.ui.login.LoginActivity
+import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
 
 class ProfileFragment : Fragment() {
 
@@ -35,6 +38,9 @@ class ProfileFragment : Fragment() {
 
     private lateinit var viewModel: ProfileViewModel
     private val networkViewModel: NetworkViewModel by activityViewModels()
+
+//    private val repository = SongRepository(AppDatabase.getInstance(requireContext()).songDao(), requireContext().applicationContext)
+//    private val tokenManager = TokenManager(requireContext().applicationContext)
 
     private var snackbar: Snackbar? = null
 
@@ -51,7 +57,8 @@ class ProfileFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         val tokenManager = TokenManager(requireContext().applicationContext)
         val userRepository = UserRepository(tokenManager)
-        val factory = ProfileViewModelFactory(userRepository)
+        val songRepository = SongRepository(AppDatabase.getInstance(requireContext()).songDao(), requireContext().applicationContext)
+        val factory = ProfileViewModelFactory(userRepository, songRepository)
 
         viewModel = ViewModelProvider(this, factory)[ProfileViewModel::class.java]
 
@@ -63,6 +70,8 @@ class ProfileFragment : Fragment() {
 
 
     private fun observeProfile() {
+        val tokenManager = TokenManager(requireContext().applicationContext)
+        val repository = SongRepository(AppDatabase.getInstance(requireContext()).songDao(), requireContext().applicationContext)
         viewModel.profileState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is ProfileState.Loading -> {
@@ -72,6 +81,13 @@ class ProfileFragment : Fragment() {
                     val user = state.profile
                     binding.tvUsername.text = user.username
                     binding.tvLocation.text = user.location
+                    viewModel.setUserId(tokenManager.getEmail())
+                    lifecycleScope.launch {
+                        val songsCount = repository.getOwnedSongsCount(tokenManager.getEmail())
+                        binding.tvSongsCount.text = "$songsCount"
+                        val heardsCount = repository.getHeardSongsCount(tokenManager.getEmail())
+                        binding.tvListenedCount.text = "$heardsCount"
+                    }
                     Glide.with(this)
                         .load(user.profilePhoto)
                         .into(binding.ivProfile)
@@ -80,6 +96,9 @@ class ProfileFragment : Fragment() {
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+        viewModel.likedCount.observe(viewLifecycleOwner) { likedCount ->
+            binding.tvLikedCount.text = "$likedCount"
         }
     }
 

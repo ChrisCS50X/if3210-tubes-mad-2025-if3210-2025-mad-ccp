@@ -39,4 +39,13 @@ interface SongDao {
 
     @Query("SELECT isLiked FROM songs WHERE id = :songId")
     suspend fun getLikedStatusBySongId(songId: Long): Boolean
+
+    @Query("SELECT COUNT(*) FROM songs WHERE userId = :userId AND isLiked = 1")
+    fun getLikedSongsCountByUserId(userId: String?): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM songs WHERE userId = :userId")
+    suspend fun getOwnedSongsCountByUserId(userId: String?): Int
+
+    @Query("SELECT COUNT(*) FROM songs WHERE userId = :userId AND playCount > 0")
+    suspend fun getHeardSongsCountByUserId(userId: String?): Int
 }
