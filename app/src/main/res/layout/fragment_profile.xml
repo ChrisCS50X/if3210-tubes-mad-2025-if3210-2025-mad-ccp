@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212">
+    android:background="@drawable/profile_bg">
 
     <FrameLayout
         android:id="@+id/profileImageFrame"
@@ -50,7 +50,7 @@
         android:text="@string/_13522xxx"
         android:textColor="@android:color/white"
         android:textSize="18sp"
-        android:textStyle="bold"
+        android:fontFamily="@font/poppins_bold"
         app:layout_constraintTop_toBottomOf="@id/profileImageFrame"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -81,7 +81,8 @@
         app:layout_constraintTop_toBottomOf="@id/tvLocation"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="16dp"
+        android:fontFamily="@font/poppins"/>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -109,11 +110,12 @@
                 android:text="@string/_135"
                 android:textColor="@android:color/white"
                 android:textSize="18sp"
-                android:textStyle="bold" />
+                android:fontFamily="@font/poppins_bold" />
 
             <TextView
                 android:text="@string/songs"
                 android:textColor="#888888"
+                android:fontFamily="@font/poppins"
                 android:textSize="12sp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
@@ -123,6 +125,7 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
+            android:baselineAligned="false"
             android:orientation="vertical"
             android:gravity="center">
 
@@ -138,8 +141,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins"
                 android:text="@string/liked"
-                android:textColor="#388E3C"
+                android:textColor="#888888"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -157,14 +161,15 @@
                 android:text="@string/_50"
                 android:textColor="@android:color/white"
                 android:textSize="18sp"
-                android:textStyle="bold" />
+                android:fontFamily="@font/poppins_bold" />
 
             <TextView
                 android:text="@string/listened"
                 android:textColor="#888888"
                 android:textSize="12sp"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins"/>
         </LinearLayout>
     </LinearLayout>
 

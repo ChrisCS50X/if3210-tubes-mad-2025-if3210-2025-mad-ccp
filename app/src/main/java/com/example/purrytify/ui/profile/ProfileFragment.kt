@@ -89,7 +89,7 @@ class ProfileFragment : Fragment() {
                         binding.tvListenedCount.text = "$heardsCount"
                     }
                     Glide.with(this)
-                        .load(user.profilePhoto)
+                        .load("http://34.101.226.132:3000/uploads/profile-picture/${user.profilePhoto}")
                         .into(binding.ivProfile)
                 }
                 is ProfileState.Error -> {
