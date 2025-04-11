@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import android.widget.SeekBar
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.example.purrytify.R
@@ -15,6 +14,8 @@ import com.example.purrytify.data.local.AppDatabase
 import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.databinding.FragmentNowPlayingBinding
 import java.util.concurrent.TimeUnit
+import android.util.Log
+import androidx.navigation.fragment.findNavController
 
 class NowPlayingFragment : Fragment() {
 
@@ -49,9 +50,31 @@ class NowPlayingFragment : Fragment() {
     }
 
     private fun setupUI() {
-        // Set up back button
+        Log.d("NowPlayingFragment", "Setting up UI")
+
+        // Replace navigation logic with direct navigation to previous fragment
         binding.btnBack.setOnClickListener {
-            findNavController().navigateUp()
+            Log.d("NowPlayingFragment", "Back button clicked")
+
+            // Import needed: import com.example.purrytify.ui.main.MainActivity
+            try {
+                // Try to get main activity and use its navigation method
+                val activity = requireActivity()
+                if (activity is com.example.purrytify.ui.main.MainActivity) {
+                    activity.navigateBackFromNowPlaying()
+                } else {
+                    // Fallback if somehow we're not in MainActivity
+                    findNavController().navigateUp()
+                }
+            } catch (e: Exception) {
+                Log.e("NowPlayingFragment", "Error navigating back: ${e.message}", e)
+                // Final fallback - try simple navigation up
+                try {
+                    findNavController().navigateUp()
+                } catch (e2: Exception) {
+                    Log.e("NowPlayingFragment", "Final fallback failed: ${e2.message}", e2)
+                }
+            }
         }
 
         // If we received a song via arguments, display it

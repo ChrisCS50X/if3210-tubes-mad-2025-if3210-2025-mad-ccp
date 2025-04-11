@@ -12,7 +12,10 @@
         tools:layout="@layout/fragment_home">
         <action
             android:id="@+id/action_navigation_home_to_now_playing"
-            app:destination="@id/navigation_now_playing" />
+            app:destination="@id/navigation_now_playing"
+            app:launchSingleTop="true"
+            app:popUpTo="@id/navigation_home"
+            app:popUpToInclusive="false" />
     </fragment>
 
     <fragment
@@ -22,7 +25,10 @@
         tools:layout="@layout/fragment_library">
         <action
             android:id="@+id/action_navigation_library_to_now_playing"
-            app:destination="@id/navigation_now_playing" />
+            app:destination="@id/navigation_now_playing"
+            app:launchSingleTop="true"
+            app:popUpTo="@id/navigation_library"
+            app:popUpToInclusive="false" />
     </fragment>
 
     <fragment
@@ -33,7 +39,10 @@
 
     <action
         android:id="@+id/action_global_navigation_now_playing"
-        app:destination="@id/navigation_now_playing" />
+        app:destination="@id/navigation_now_playing"
+        app:launchSingleTop="true"
+        app:popUpTo="@id/nav_graph"
+        app:popUpToInclusive="false" />
 
     <fragment
         android:id="@+id/navigation_now_playing"

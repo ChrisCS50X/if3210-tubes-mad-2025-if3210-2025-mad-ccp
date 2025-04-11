@@ -29,6 +29,8 @@ import com.example.purrytify.NavGraphDirections
 
 import androidx.activity.viewModels
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.NavController
+import androidx.navigation.NavOptions
 import com.bumptech.glide.Glide
 
 class MainActivity : AppCompatActivity() {
@@ -36,6 +38,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var tokenRefreshManager: TokenRefreshManager
     private lateinit var musicPlayerViewModel: MusicPlayerViewModel
+
+    private var currentTab = R.id.navigation_home
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -285,18 +289,61 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun navigateToNowPlaying(song: Song) {
-        // Get the NavController
+        // Get NavController
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
-        // Create the action using generated NavDirections
+        // Store current tab before navigating
+        currentTab = navController.currentDestination?.id ?: R.id.navigation_home
+        Log.d("Navigation", "Navigating to Now Playing from tab: $currentTab")
+
+        // Always use global action for simplicity and consistency
         val action = NavGraphDirections.actionGlobalNavigationNowPlaying(
-            song = song,
-            isPlaying = musicPlayerViewModel.isPlaying.value ?: false
+            song, musicPlayerViewModel.isPlaying.value ?: false
         )
 
-        // Navigate using the action
+        // Use basic navigation without complex options
         navController.navigate(action)
+
+        // Debug: Print back stack after navigation
+        logBackStack(navController)
+    }
+
+    private fun logBackStack(navController: NavController) {
+        val backStack = mutableListOf<String>()
+        var backStackIndex = 0
+
+        // Try-catch in case of exceptions with the internal NavController methods
+        try {
+            while (true) {
+                val entry = navController.getBackStackEntry(backStackIndex)
+                backStack.add("${entry.destination.label ?: entry.destination.id}")
+                backStackIndex++
+            }
+        } catch (e: Exception) {
+            // This is expected when we reach the end of the back stack
+        }
+
+        Log.d("NavigationDebug", "Back stack (${backStack.size}): ${backStack.joinToString(" -> ")}")
+    }
+
+    // Add this public method to MainActivity
+    fun navigateBackFromNowPlaying() {
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        val navController = navHostFragment.navController
+
+        Log.d("Navigation", "Navigating back from Now Playing to tab: $currentTab")
+
+        // Navigate to the saved tab
+        when (currentTab) {
+            R.id.navigation_home -> navController.navigate(R.id.navigation_home)
+            R.id.navigation_library -> navController.navigate(R.id.navigation_library)
+            R.id.navigation_profile -> navController.navigate(R.id.navigation_profile)
+            else -> navController.navigate(R.id.navigation_home)
+        }
+
+        // Debug: Print back stack after navigation
+        logBackStack(navController)
     }
 
     override fun onDestroy() {
