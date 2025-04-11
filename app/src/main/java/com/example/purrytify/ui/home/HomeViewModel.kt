@@ -27,7 +27,7 @@ class HomeViewModel(private val songRepository: SongRepository, private val cont
             try {
                 val tokenManager = TokenManager(context)
                 _newSongs.value = songRepository.getNewSongs(tokenManager.getEmail(),10)
-                _recentlyPlayed.value = songRepository.getRecentlyPlayed()
+                _recentlyPlayed.value = songRepository.getRecentlyPlayed(tokenManager.getEmail(),10)
             } catch (e: Exception) {
                 // Handle error, perhaps add an error state
             } finally {

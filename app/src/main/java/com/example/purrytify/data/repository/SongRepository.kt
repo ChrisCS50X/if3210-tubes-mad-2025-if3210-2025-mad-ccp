@@ -43,9 +43,9 @@ class SongRepository(private val songDao: SongDao, context: Context) {
         }
     }
 
-    suspend fun getRecentlyPlayed(limit: Int = 10): List<Song> {
+    suspend fun getRecentlyPlayed(userId: String?, limit: Int = 10): List<Song> {
         return withContext(Dispatchers.IO) {
-            val songEntities = songDao.getRecentlyPlayed(limit)
+            val songEntities = songDao.getRecentlyPlayedByUserId(userId, limit)
             songEntities.map { it.toDomainModel() }
         }
     }
