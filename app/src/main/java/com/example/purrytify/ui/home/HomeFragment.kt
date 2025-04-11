@@ -1,7 +1,6 @@
 package com.example.purrytify.ui.home
 
 import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,9 +17,12 @@ import com.example.purrytify.databinding.FragmentHomeBinding
 import com.example.purrytify.ui.adapter.NewSongsAdapter
 import com.example.purrytify.ui.adapter.RecentlyPlayedAdapter
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
 import com.example.purrytify.data.model.Song
 import androidx.navigation.fragment.findNavController
 import com.example.purrytify.R
+import kotlinx.coroutines.launch
+import android.util.Log;
 
 class HomeFragment : Fragment() {
 
@@ -77,6 +79,17 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupMiniPlayerControls() {
+        viewModel.currentlyPlayingSong.value?.let { song ->
+            val songDao = AppDatabase.getInstance(requireContext()).songDao()
+            val songRepository = SongRepository(songDao)
+            lifecycleScope.launch {
+                val isLiked = songRepository.getLikedStatusBySongId(song.id)
+                binding.miniPlayer.btnAddLiked.setImageResource(
+                    if (isLiked) R.drawable.ic_minus else R.drawable.ic_plus
+                )
+            }
+        }
+
         binding.miniPlayer.btnMiniPlayPause.setOnClickListener {
             mediaPlayer?.let {
                 if (it.isPlaying) {
@@ -86,6 +99,24 @@ class HomeFragment : Fragment() {
                     it.start()
                     binding.miniPlayer.btnMiniPlayPause.setImageResource(android.R.drawable.ic_media_pause)
                 }
+            }
+        }
+
+        binding.miniPlayer.btnAddLiked.setOnClickListener {
+            viewModel.currentlyPlayingSong.value?.let { song ->
+                val songDao = AppDatabase.getInstance(requireContext()).songDao()
+                val songRepository = SongRepository(songDao)
+                lifecycleScope.launch {
+                    if(songRepository.getLikedStatusBySongId(song.id)){
+                        songRepository.updateLikeStatus(song.id, false)
+                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_plus)
+                    }
+                    else{
+                        songRepository.updateLikeStatus(song.id, true)
+                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_minus)
+                    }
+                }
+
             }
         }
 

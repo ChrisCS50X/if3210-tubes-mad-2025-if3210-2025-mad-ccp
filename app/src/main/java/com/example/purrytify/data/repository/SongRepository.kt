@@ -51,4 +51,14 @@ class SongRepository(private val songDao: SongDao) {
             songDao.updateLastPlayed(songId, System.currentTimeMillis())
         }
     }
+
+    suspend fun updateLikeStatus(songId: Long, isLiked: Boolean) {
+        withContext(Dispatchers.IO) {
+            songDao.updateLikedStatus(songId, isLiked)
+        }
+    }
+
+    suspend fun getLikedStatusBySongId(songId: Long): Boolean {
+        return songDao.getLikedStatusBySongId(songId)
+    }
 }
