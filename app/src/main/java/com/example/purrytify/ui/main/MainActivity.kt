@@ -95,8 +95,8 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             binding = ActivityMainBinding.inflate(layoutInflater)
             setContentView(binding.root)
-            setupNavigation()
             setupMusicPlayer()
+            setupNavigation()
             checkPermissions()
             requestNotificationPermission()
             setupTokenRefresh()
@@ -110,12 +110,41 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun setupNavigation() {
-        // Get NavController correctly from the NavHostFragment
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
-        // Connect BottomNavigationView with NavController
         binding.bottomNavigation.setupWithNavController(navController)
+
+        // Track whether we're currently in the NowPlayingFragment
+        var isInNowPlayingFragment = false
+
+        // Add navigation listener to handle mini player visibility
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            isInNowPlayingFragment = (destination.id == R.id.navigation_now_playing)
+            updateMiniPlayerVisibility(isInNowPlayingFragment)
+        }
+
+        // Observe song changes separately from navigation
+        musicPlayerViewModel.currentSong.observe(this) { song ->
+            if (!isInNowPlayingFragment) {
+                // Only update visibility if we're not in the now playing fragment
+                binding.miniPlayerContainer.visibility =
+                    if (song != null) View.VISIBLE else View.GONE
+            }
+
+            // Update mini player content regardless of visibility
+            song?.let { updateMiniPlayer(it) }
+        }
+    }
+
+    private fun updateMiniPlayerVisibility(isInNowPlayingFragment: Boolean) {
+        binding.miniPlayerContainer.visibility = if (isInNowPlayingFragment) {
+            View.GONE
+        } else if (musicPlayerViewModel.currentSong.value != null) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
     }
 
     private fun checkPermissions() {
@@ -230,10 +259,6 @@ class MainActivity : AppCompatActivity() {
             Log.d("MainActivity", "Current song changed: ${song?.title ?: "null"}")
             song?.let {
                 updateMiniPlayer(it)
-                binding.miniPlayerContainer.visibility = View.VISIBLE
-                Log.d("MainActivity", "Mini player should be visible now")
-            } ?: run {
-                binding.miniPlayerContainer.visibility = View.GONE
             }
         }
 

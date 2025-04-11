@@ -91,16 +91,14 @@ class NowPlayingFragment : Fragment() {
                 // If more than 3 seconds played, seek to beginning
                 musicPlayerViewModel.seekTo(0)
             } else {
-                // Otherwise go to previous song if implemented
-                // For now, just seek to beginning
-                musicPlayerViewModel.seekTo(0)
+                // Play the previous song
+                musicPlayerViewModel.playPreviousSong()
             }
         }
 
-        // Next button - future implementation could go to next song
+        // Next button - now plays the next song
         binding.btnNext.setOnClickListener {
-            // For now, just seek to beginning
-            musicPlayerViewModel.seekTo(0)
+            musicPlayerViewModel.playNextSong()
         }
 
         // SeekBar interaction

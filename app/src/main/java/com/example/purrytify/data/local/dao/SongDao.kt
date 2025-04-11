@@ -9,7 +9,6 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE userId = :userId ORDER BY title ASC")
     fun getAllSongsByUserId(userId: String?): Flow<List<SongEntity>>
 
-
     @Query("SELECT * FROM songs WHERE isLiked = 1 ORDER BY title ASC")
     fun getLikedSongs(): Flow<List<SongEntity>>
 
@@ -48,4 +47,7 @@ interface SongDao {
 
     @Query("SELECT COUNT(*) FROM songs WHERE userId = :userId AND playCount > 0")
     suspend fun getHeardSongsCountByUserId(userId: String?): Int
+
+    @Query("SELECT * FROM songs WHERE userId = :userId ORDER BY title ASC")
+    suspend fun getAllSongsByUserIdOrdered(userId: String?): List<SongEntity>
 }

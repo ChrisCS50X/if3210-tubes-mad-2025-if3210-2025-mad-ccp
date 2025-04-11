@@ -77,4 +77,45 @@ class SongRepository(private val songDao: SongDao, context: Context) {
     suspend fun getHeardSongsCount(userId: String?): Int {
         return songDao.getHeardSongsCountByUserId(userId)
     }
+
+    suspend fun getAllSongsOrdered(): List<Song> {
+        return withContext(Dispatchers.IO) {
+            val songEntities = songDao.getAllSongsByUserIdOrdered(tokenManager.getEmail())
+            songEntities.map { it.toDomainModel() }
+        }
+    }
+
+    suspend fun getNextSong(currentSongId: Long): Song? {
+        return withContext(Dispatchers.IO) {
+            val allSongs = getAllSongsOrdered()
+            if (allSongs.isEmpty()) return@withContext null
+
+            val currentIndex = allSongs.indexOfFirst { it.id == currentSongId }
+            if (currentIndex == -1) return@withContext allSongs.firstOrNull()
+
+            return@withContext if (currentIndex < allSongs.size - 1) {
+                allSongs[currentIndex + 1]
+            } else {
+                // Loop back to the beginning
+                allSongs.firstOrNull()
+            }
+        }
+    }
+
+    suspend fun getPreviousSong(currentSongId: Long): Song? {
+        return withContext(Dispatchers.IO) {
+            val allSongs = getAllSongsOrdered()
+            if (allSongs.isEmpty()) return@withContext null
+
+            val currentIndex = allSongs.indexOfFirst { it.id == currentSongId }
+            if (currentIndex == -1) return@withContext allSongs.lastOrNull()
+
+            return@withContext if (currentIndex > 0) {
+                allSongs[currentIndex - 1]
+            } else {
+                // Loop back to the end
+                allSongs.lastOrNull()
+            }
+        }
+    }
 }

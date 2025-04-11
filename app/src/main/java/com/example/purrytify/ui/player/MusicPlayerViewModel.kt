@@ -147,4 +147,32 @@ class MusicPlayerViewModel(
             bound = false
         }
     }
+
+    fun playNextSong() {
+        viewModelScope.launch {
+            val currentSong = _currentSong.value ?: return@launch
+            try {
+                val nextSong = songRepository.getNextSong(currentSong.id)
+                nextSong?.let {
+                    playSong(it)
+                }
+            } catch (e: Exception) {
+                Log.e("MusicPlayerViewModel", "Error playing next song", e)
+            }
+        }
+    }
+
+    fun playPreviousSong() {
+        viewModelScope.launch {
+            val currentSong = _currentSong.value ?: return@launch
+            try {
+                val previousSong = songRepository.getPreviousSong(currentSong.id)
+                previousSong?.let {
+                    playSong(it)
+                }
+            } catch (e: Exception) {
+                Log.e("MusicPlayerViewModel", "Error playing previous song", e)
+            }
+        }
+    }
 }
