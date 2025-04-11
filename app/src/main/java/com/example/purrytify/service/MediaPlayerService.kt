@@ -6,12 +6,10 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -64,7 +62,6 @@ class MediaPlayerService : LifecycleService() {
         setupMediaSession()
         checkAudioSettings()
 
-        // Start progress update callback
         progressUpdateJob = Runnable {
             updateProgress()
             progressUpdateJob?.let {
@@ -95,12 +92,10 @@ class MediaPlayerService : LifecycleService() {
 
                 override fun onSkipToNext() {
                     Log.d(TAG, "MediaSession callback: onSkipToNext")
-                    // Implement if you add playlist functionality
                 }
 
                 override fun onSkipToPrevious() {
                     Log.d(TAG, "MediaSession callback: onSkipToPrevious")
-                    // Implement if you add playlist functionality
                 }
 
                 override fun onSeekTo(pos: Long) {
@@ -117,12 +112,11 @@ class MediaPlayerService : LifecycleService() {
 
         Log.d(TAG, "checkAudioSettings: Music volume: $currentVolume/$maxVolume")
 
-        // If volume is 0, set it to a reasonable level
         if (currentVolume == 0) {
             Log.d(TAG, "checkAudioSettings: Volume is 0, increasing to 1/3 of max")
             audioManager?.setStreamVolume(
                 AudioManager.STREAM_MUSIC,
-                maxVolume / 3, // Set to 1/3 of max
+                maxVolume / 3,
                 0
             )
         }
@@ -175,7 +169,6 @@ class MediaPlayerService : LifecycleService() {
                         song.filePath.startsWith("file://")) {
                         song.filePath.toUri()
                     } else {
-                        // Add file:// prefix if it's a local path
                         "file://${song.filePath}".toUri()
                     }
 
@@ -216,7 +209,6 @@ class MediaPlayerService : LifecycleService() {
             return
         }
 
-        // Try up to 3 times to get audio focus
         var focusGranted = false
         var attempts = 0
         while (!focusGranted && attempts < 3) {
@@ -337,20 +329,14 @@ class MediaPlayerService : LifecycleService() {
     }
 
     private fun requestAudioFocus(): Boolean {
-        // Don't abandon audio focus when requesting it again - this could be causing conflicts
-        // abandonAudioFocus() - REMOVE THIS LINE
-
         Log.d(TAG, "requestAudioFocus: Starting focus request")
 
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Create a new request only if we don't already have one
             if (audioFocusRequest == null) {
                 Log.d(TAG, "requestAudioFocus: Creating new AudioFocusRequest")
                 audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                     .setOnAudioFocusChangeListener { focusChange ->
                         Log.d(TAG, "Audio focus changed: $focusChange")
-                        // Add a small delay to avoid reacting too quickly to focus changes
-                        // that might be temporary or system-induced
                         mainHandler.postDelayed({
                             if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
                                 Log.d(TAG, "Delayed handling of AUDIOFOCUS_LOSS")
@@ -358,7 +344,7 @@ class MediaPlayerService : LifecycleService() {
                             } else {
                                 handleAudioFocusChange(focusChange)
                             }
-                        }, 200) // 200ms delay for AUDIOFOCUS_LOSS
+                        }, 200)
                     }
                     .build()
             }
