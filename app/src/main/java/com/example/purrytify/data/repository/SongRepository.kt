@@ -36,9 +36,9 @@ class SongRepository(private val songDao: SongDao, context: Context) {
         return songDao.insertSong(song.toEntity(context))
     }
 
-    suspend fun getNewSongs(limit: Int = 10): List<Song> {
+    suspend fun getNewSongs( userId: String?, limit: Int = 10): List<Song> {
         return withContext(Dispatchers.IO) {
-            val songEntities = songDao.getLatestSongs(limit)
+            val songEntities = songDao.getLatestSongsByUserId(userId,limit)
             songEntities.map { it.toDomainModel() }
         }
     }

@@ -28,8 +28,8 @@ interface SongDao {
     @Query("UPDATE songs SET playCount = playCount + 1 WHERE id = :songId")
     suspend fun incrementPlayCount(songId: Long)
 
-    @Query("SELECT * FROM songs ORDER BY id DESC LIMIT :limit")
-    suspend fun getLatestSongs(limit: Int): List<SongEntity>
+    @Query("SELECT * FROM songs WHERE userId = :userId ORDER BY id DESC LIMIT :limit")
+    suspend fun getLatestSongsByUserId(userId: String?, limit: Int): List<SongEntity>
 
     @Query("SELECT * FROM songs WHERE lastPlayedAt > 0 ORDER BY lastPlayedAt DESC LIMIT :limit")
     suspend fun getRecentlyPlayed(limit: Int): List<SongEntity>

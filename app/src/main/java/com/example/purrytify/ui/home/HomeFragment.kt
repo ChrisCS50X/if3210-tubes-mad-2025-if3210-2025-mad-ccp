@@ -56,7 +56,7 @@ class HomeFragment : Fragment() {
         val songDao = AppDatabase.getInstance(requireContext()).songDao()
         val songRepository = SongRepository(songDao, requireContext().applicationContext)
 
-        val viewModelFactory = HomeViewModelFactory(songRepository)
+        val viewModelFactory = HomeViewModelFactory(songRepository,requireContext().applicationContext)
         homeViewModel = ViewModelProvider(this, viewModelFactory)[HomeViewModel::class.java]
     }
 
