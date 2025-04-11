@@ -1,5 +1,7 @@
 package com.example.purrytify.data.repository
 
+import android.content.Context
+import com.example.purrytify.data.local.TokenManager
 import com.example.purrytify.data.local.dao.SongDao
 import com.example.purrytify.data.local.entity.SongEntity
 import com.example.purrytify.data.model.Song
@@ -11,8 +13,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 
-class SongRepository(private val songDao: SongDao) {
-    val allSongs = songDao.getAllSongs().map { entities ->
+class SongRepository(private val songDao: SongDao, context: Context) {
+    private val tokenManager = TokenManager(context)
+
+    val allSongs = songDao.getAllSongsByUserId(tokenManager.getEmail()).map { entities ->
         entities.map { it.toDomainModel() }
     }
 
@@ -28,8 +32,8 @@ class SongRepository(private val songDao: SongDao) {
         songDao.updateLikedStatus(songId, isLiked)
     }
 
-    suspend fun insertSong(song: Song): Long {
-        return songDao.insertSong(song.toEntity())
+    suspend fun insertSong(song: Song, context: Context): Long {
+        return songDao.insertSong(song.toEntity(context))
     }
 
     suspend fun getNewSongs(limit: Int = 10): List<Song> {

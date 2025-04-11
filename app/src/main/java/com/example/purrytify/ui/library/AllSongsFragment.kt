@@ -17,7 +17,7 @@ class AllSongsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var songAdapter: SongAdapter
-    private val viewModel: LibraryViewModel by viewModels { LibraryViewModelFactory(requireActivity().application) }
+    private val viewModel: LibraryViewModel by viewModels { LibraryViewModelFactory(requireActivity().application, requireContext().applicationContext) }
 
     override fun onCreateView(
         inflater: LayoutInflater,

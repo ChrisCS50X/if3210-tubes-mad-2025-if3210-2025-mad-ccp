@@ -17,6 +17,15 @@ class TokenManager(context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
+
+    fun saveEmail(email: String) {
+        sharedPreferences.edit().putString(KEY_EMAIL, email).apply()
+    }
+
+    fun getEmail(): String? {
+        return sharedPreferences.getString(KEY_EMAIL, null)
+    }
+
     fun saveToken(token: String) {
         sharedPreferences.edit().putString(TOKEN_KEY, token).apply()
     }
@@ -47,5 +56,6 @@ class TokenManager(context: Context) {
     companion object {
         private const val TOKEN_KEY = "auth_token"
         private const val REFRESH_TOKEN_KEY = "refresh_token"
+        private const val KEY_EMAIL = "key_email"
     }
 }

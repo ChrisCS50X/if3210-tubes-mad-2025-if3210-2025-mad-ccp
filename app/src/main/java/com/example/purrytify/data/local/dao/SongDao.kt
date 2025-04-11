@@ -6,8 +6,9 @@ import com.example.purrytify.data.local.entity.SongEntity
 
 @Dao
 interface SongDao {
-    @Query("SELECT * FROM songs ORDER BY title ASC")
-    fun getAllSongs(): Flow<List<SongEntity>>
+    @Query("SELECT * FROM songs WHERE userId = :userId ORDER BY title ASC")
+    fun getAllSongsByUserId(userId: String?): Flow<List<SongEntity>>
+
 
     @Query("SELECT * FROM songs WHERE isLiked = 1 ORDER BY title ASC")
     fun getLikedSongs(): Flow<List<SongEntity>>

@@ -28,7 +28,7 @@ class AddSongDialogFragment : DialogFragment() {
     private val binding get() = _binding!!
 
     private val viewModel: LibraryViewModel by viewModels {
-        LibraryViewModelFactory(requireActivity().application)
+        LibraryViewModelFactory(requireActivity().application, requireContext().applicationContext)
     }
 
     private var selectedAudioUri: Uri? = null
@@ -215,7 +215,7 @@ class AddSongDialogFragment : DialogFragment() {
                 isLiked = false
             )
 
-            viewModel.addSong(newSong)
+            viewModel.addSong(newSong, requireContext().applicationContext)
             Toast.makeText(requireContext(), "Song added successfully", Toast.LENGTH_SHORT).show()
             dismiss()
         } catch (e: SecurityException) {

@@ -54,7 +54,7 @@ class HomeFragment : Fragment() {
 
     private fun setupViewModel() {
         val songDao = AppDatabase.getInstance(requireContext()).songDao()
-        val songRepository = SongRepository(songDao)
+        val songRepository = SongRepository(songDao, requireContext().applicationContext)
 
         val viewModelFactory = HomeViewModelFactory(songRepository)
         viewModel = ViewModelProvider(this, viewModelFactory)[HomeViewModel::class.java]
@@ -81,7 +81,7 @@ class HomeFragment : Fragment() {
     private fun setupMiniPlayerControls() {
         viewModel.currentlyPlayingSong.value?.let { song ->
             val songDao = AppDatabase.getInstance(requireContext()).songDao()
-            val songRepository = SongRepository(songDao)
+            val songRepository = SongRepository(songDao, requireContext().applicationContext)
             lifecycleScope.launch {
                 val isLiked = songRepository.getLikedStatusBySongId(song.id)
                 binding.miniPlayer.btnAddLiked.setImageResource(
@@ -105,7 +105,7 @@ class HomeFragment : Fragment() {
         binding.miniPlayer.btnAddLiked.setOnClickListener {
             viewModel.currentlyPlayingSong.value?.let { song ->
                 val songDao = AppDatabase.getInstance(requireContext()).songDao()
-                val songRepository = SongRepository(songDao)
+                val songRepository = SongRepository(songDao, requireContext().applicationContext)
                 lifecycleScope.launch {
                     if(songRepository.getLikedStatusBySongId(song.id)){
                         songRepository.updateLikeStatus(song.id, false)

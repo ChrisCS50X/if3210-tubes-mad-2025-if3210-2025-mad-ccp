@@ -69,6 +69,9 @@ class LoginActivity : AppCompatActivity() {
                     binding.btnLogin.isEnabled = false
                 }
                 is LoginState.Success -> {
+                    val email = binding.etEmail.text.toString()
+                    val tokenManager = TokenManager(applicationContext)
+                    tokenManager.saveEmail(email)
                     binding.progressBar.visibility = View.GONE
                     navigateToMain()
                 }
