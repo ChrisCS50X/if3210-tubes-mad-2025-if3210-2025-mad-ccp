@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("androidx.navigation.safeargs.kotlin")
     id("kotlin-kapt")
 }
 
@@ -46,8 +47,8 @@ dependencies {
     implementation(libs.material)
 
     // Navigation component
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.5")
-    implementation("androidx.navigation:navigation-ui-ktx:2.7.5")
+    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
+    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
 
     // Network and API
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -57,6 +58,7 @@ dependencies {
     // Image loading
     implementation("io.coil-kt:coil:2.4.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation ("androidx.lifecycle:lifecycle-service:2.6.2")
     kapt("com.github.bumptech.glide:compiler:4.16.0")
 
     // Media playback
@@ -81,8 +83,11 @@ dependencies {
     // WorkManager
     implementation ("androidx.work:work-runtime-ktx:2.8.1")
 
+    // Fragment
     implementation ("androidx.fragment:fragment-ktx:1.6.2")
 
+    // Media player
+    implementation ("androidx.media:media:1.7.0")
 
     // Testing
     testImplementation(libs.junit)

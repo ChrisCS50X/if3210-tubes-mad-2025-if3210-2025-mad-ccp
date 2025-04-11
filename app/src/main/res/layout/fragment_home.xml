@@ -93,14 +93,4 @@
             app:layout_constraintEnd_toEndOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <include
-        layout="@layout/mini_player"
-        android:id="@+id/miniPlayer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="8dp"
-        android:layout_gravity="bottom"
-        android:visibility="gone" />
 </FrameLayout>

@@ -45,8 +45,10 @@
 
         <!-- Music Service -->
         <service
-            android:name=".service.MusicService"
-            android:foregroundServiceType="mediaPlayback"
-            android:exported="false" />
+            android:name=".service.MediaPlayerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"/>
     </application>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

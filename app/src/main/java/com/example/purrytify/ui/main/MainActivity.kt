@@ -13,19 +13,29 @@ import android.widget.Toast
 import com.example.purrytify.service.TokenRefreshManager
 import android.content.Intent
 import android.util.Log
+import android.view.View
 import com.example.purrytify.data.local.TokenManager
 import com.example.purrytify.data.repository.UserRepository
 import com.example.purrytify.ui.login.LoginActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import com.example.purrytify.data.local.AppDatabase
+import com.example.purrytify.data.model.Song
+import com.example.purrytify.data.repository.SongRepository
+import com.example.purrytify.ui.player.MusicPlayerViewModel
+import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
+import com.example.purrytify.NavGraphDirections
 
 
 import androidx.activity.viewModels
+import androidx.lifecycle.ViewModelProvider
+import com.bumptech.glide.Glide
 
 class MainActivity : AppCompatActivity() {
     private val networkViewModel by viewModels<NetworkViewModel>()
     private lateinit var binding: ActivityMainBinding
     private lateinit var tokenRefreshManager: TokenRefreshManager
+    private lateinit var musicPlayerViewModel: MusicPlayerViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,7 +96,9 @@ class MainActivity : AppCompatActivity() {
             binding = ActivityMainBinding.inflate(layoutInflater)
             setContentView(binding.root)
             setupNavigation()
+            setupMusicPlayer()
             checkPermissions()
+            requestNotificationPermission()
             setupTokenRefresh()
         }
     }
@@ -147,11 +159,102 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_CODE
+                )
+            }
+        }
+    }
+
+    private fun setupMusicPlayer() {
+        // Get the ViewModel
+        val database = AppDatabase.getInstance(this)
+        val repository = SongRepository(database.songDao())
+        val factory = MusicPlayerViewModelFactory(application, repository)
+        musicPlayerViewModel = ViewModelProvider(this, factory)[MusicPlayerViewModel::class.java]
+
+        // Set up mini player controls
+        binding.miniPlayer.btnMiniPlayPause.setOnClickListener {
+            Log.d("MainActivity", "Play/Pause button clicked, current state: ${musicPlayerViewModel.isPlaying.value}")
+            musicPlayerViewModel.togglePlayPause()
+        }
+
+        binding.miniPlayer.root.setOnClickListener {
+            musicPlayerViewModel.currentSong.value?.let { song ->
+                navigateToNowPlaying(song)
+            }
+        }
+
+        // Update mini player seek bar with current progress
+        musicPlayerViewModel.progress.observe(this) { progress ->
+            binding.miniPlayer.miniSeekBar.progress = progress
+        }
+
+        // Update seek bar max value when duration changes
+        musicPlayerViewModel.duration.observe(this) { duration ->
+            binding.miniPlayer.miniSeekBar.max = duration
+        }
+
+        // Observe music player
+        musicPlayerViewModel.currentSong.observe(this) { song ->
+            Log.d("MainActivity", "Current song changed: ${song?.title ?: "null"}")
+            song?.let {
+                updateMiniPlayer(it)
+                binding.miniPlayerContainer.visibility = View.VISIBLE
+                Log.d("MainActivity", "Mini player should be visible now")
+            } ?: run {
+                binding.miniPlayerContainer.visibility = View.GONE
+            }
+        }
+
+        musicPlayerViewModel.isPlaying.observe(this) { isPlaying ->
+            val icon = if (isPlaying) {
+                R.drawable.ic_pause
+            } else {
+                R.drawable.ic_play
+            }
+            binding.miniPlayer.btnMiniPlayPause.setImageResource(icon)
+        }
+    }
+
+    private fun updateMiniPlayer(song: Song) {
+        binding.miniPlayer.tvMiniTitle.text = song.title
+        binding.miniPlayer.tvMiniArtist.text = song.artist
+
+        // Load cover art with Glide
+        Glide.with(this)
+            .load(song.coverUrl)
+            .placeholder(R.drawable.placeholder_album)
+            .error(R.drawable.placeholder_album)
+            .into(binding.miniPlayer.ivMiniCover)
+    }
+
+    private fun navigateToNowPlaying(song: Song) {
+        // Get the NavController
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        val navController = navHostFragment.navController
+
+        // Create the action using generated NavDirections
+        val action = NavGraphDirections.actionGlobalNavigationNowPlaying(
+            song = song,
+            isPlaying = musicPlayerViewModel.isPlaying.value ?: false
+        )
+
+        // Navigate using the action
+        navController.navigate(action)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
     }
 
     companion object {
+        private const val NOTIFICATION_PERMISSION_CODE = 101
         private const val STORAGE_PERMISSION_CODE = 100
     }
 }
