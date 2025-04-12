@@ -3,6 +3,10 @@ package com.example.purrytify.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+
+/**
+ * Entity class yang mewakili tabel lagu di database lokal.
+ */
 @Entity(tableName = "songs")
 data class SongEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
