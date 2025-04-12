@@ -25,6 +25,7 @@ import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.ui.player.MusicPlayerViewModel
 import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
 import com.example.purrytify.NavGraphDirections
+import com.example.purrytify.ui.player.NowPlayingFragment
 
 
 import androidx.activity.viewModels
@@ -117,18 +118,42 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
-        binding.bottomNavigation.setupWithNavController(navController)
-
         // Track whether we're currently in the NowPlayingFragment
         var isInNowPlayingFragment = false
 
-        // Add navigation listener to handle mini player visibility
+        // Replace standard setup with custom listener
+        binding.bottomNavigation.setOnItemSelectedListener { item ->
+            // Check if we're on the Now Playing fragment
+            val currentFragment = navHostFragment.childFragmentManager.fragments.firstOrNull()
+            val isOnNowPlaying = currentFragment is NowPlayingFragment
+
+            if (isOnNowPlaying) {
+                // Clear the back stack when navigating away from Now Playing via bottom nav
+                navController.popBackStack(navController.graph.startDestinationId, false)
+            }
+
+            // Navigate to the selected destination
+            when (item.itemId) {
+                R.id.navigation_home -> navController.navigate(R.id.navigation_home)
+                R.id.navigation_library -> navController.navigate(R.id.navigation_library)
+                R.id.navigation_profile -> navController.navigate(R.id.navigation_profile)
+            }
+
+            true  // Return true to select the item
+        }
+
+        // Keep the destination change listener for mini player visibility
         navController.addOnDestinationChangedListener { _, destination, _ ->
             isInNowPlayingFragment = (destination.id == R.id.navigation_now_playing)
             updateMiniPlayerVisibility(isInNowPlayingFragment)
+
+            // Update the bottom navigation selection to match current destination
+            if (destination.id != R.id.navigation_now_playing) {
+                binding.bottomNavigation.menu.findItem(destination.id)?.isChecked = true
+            }
         }
 
-        // Observe song changes separately from navigation
+        // Observe song changes separately from navigation (unchanged)
         musicPlayerViewModel.currentSong.observe(this) { song ->
             if (!isInNowPlayingFragment) {
                 // Only update visibility if we're not in the now playing fragment
@@ -301,24 +326,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun navigateToNowPlaying(song: Song) {
-        // Get NavController
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
         // Store current tab before navigating
         currentTab = navController.currentDestination?.id ?: R.id.navigation_home
-        Log.d("Navigation", "Navigating to Now Playing from tab: $currentTab")
 
-        // Always use global action for simplicity and consistency
+        // Create action with the song data
         val action = NavGraphDirections.actionGlobalNavigationNowPlaying(
             song, musicPlayerViewModel.isPlaying.value ?: false
         )
 
-        // Use basic navigation without complex options
-        navController.navigate(action)
+        // Create navigation options that preserve back stack
+        val navOptions = NavOptions.Builder()
+            .setLaunchSingleTop(true)
+            .build()
 
-        // Debug: Print back stack after navigation
-        logBackStack(navController)
+        // Navigate with options
+        navController.navigate(action.actionId, action.arguments, navOptions)
     }
 
     private fun logBackStack(navController: NavController) {
