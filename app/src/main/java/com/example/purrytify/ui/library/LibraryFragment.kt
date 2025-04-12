@@ -8,9 +8,9 @@ import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.example.purrytify.databinding.FragmentLibraryBinding
 import com.google.android.material.tabs.TabLayoutMediator
-import com.example.purrytify.ui.addsong.AddSongDialogFragment
 import android.widget.TextView
 import com.example.purrytify.R
+import com.example.purrytify.ui.addsong.AddSongDialogFragment
 
 class LibraryFragment : Fragment() {
 

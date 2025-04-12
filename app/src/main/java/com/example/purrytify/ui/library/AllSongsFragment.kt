@@ -16,6 +16,7 @@ import com.example.purrytify.data.model.Song
 import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.databinding.FragmentAllSongsBinding
 import com.example.purrytify.ui.adapter.SongAdapter
+import com.example.purrytify.ui.editsong.EditSongDialogFragment
 import com.example.purrytify.ui.player.MusicPlayerViewModel
 import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
 
@@ -88,8 +89,8 @@ class AllSongsFragment : Fragment() {
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.action_edit -> {
-                    Toast.makeText(requireContext(), "Edit ${song.title}", Toast.LENGTH_SHORT).show()
-                    // Implementasi edit di sini
+                    val editDialog = EditSongDialogFragment(song)
+                    editDialog.show(parentFragmentManager, "EditSongDialog")
                     true
                 }
                 R.id.action_delete -> {

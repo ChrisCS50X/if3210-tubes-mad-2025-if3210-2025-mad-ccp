@@ -52,6 +52,12 @@ class LibraryViewModel(application: Application, context: Context) : AndroidView
             repository.insertSong(song, context)
         }
     }
+
+    fun updateSong(song: Song, context: Context) {
+        viewModelScope.launch {
+            repository.updateSong(song, context)
+        }
+    }
 }
 
 class LibraryViewModelFactory(private val application: Application, private val context: Context) : ViewModelProvider.Factory {
