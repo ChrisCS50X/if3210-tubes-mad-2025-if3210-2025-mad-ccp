@@ -39,8 +39,6 @@
             tools:ignore="ContentDescription" />
     </FrameLayout>
 
-
-
     <TextView
         android:id="@+id/tvUsername"
         android:layout_width="wrap_content"
