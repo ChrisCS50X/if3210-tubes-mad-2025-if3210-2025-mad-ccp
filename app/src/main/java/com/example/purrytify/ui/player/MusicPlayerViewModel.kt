@@ -16,7 +16,7 @@ import com.example.purrytify.service.MediaPlayerService
 import kotlinx.coroutines.launch
 import android.util.Log
 import java.util.LinkedList
-
+import kotlin.random.Random
 
 class MusicPlayerViewModel(
     application: Application,
@@ -43,9 +43,16 @@ class MusicPlayerViewModel(
 
     private val _duration = MutableLiveData<Int>()
     val duration: LiveData<Int> = _duration
+    
+    // Shuffle state
+    private val _isShuffleEnabled = MutableLiveData<Boolean>(false)
+    val isShuffleEnabled: LiveData<Boolean> = _isShuffleEnabled
 
     // Queue untuk menyimpan lagu-lagu yang antri
     private val _queue = LinkedList<Song>()
+    
+    // Original queue order for when shuffle is disabled
+    private val _originalQueue = mutableListOf<Song>()
 
     // LiveData untuk UI yang mau nampilin queue
     private val _queueLiveData = MutableLiveData<List<Song>>(emptyList())
@@ -135,6 +142,42 @@ class MusicPlayerViewModel(
             }
         }
     }
+    
+    fun toggleShuffle() {
+        val currentShuffleState = _isShuffleEnabled.value ?: false
+        val newState = !currentShuffleState
+        
+        Log.d("MusicPlayerViewModel", "Toggling shuffle from $currentShuffleState to $newState")
+        
+        _isShuffleEnabled.value = newState
+        
+        if (_isShuffleEnabled.value == true) {
+            // Enable shuffle
+            if (_queue.isNotEmpty()) {
+                // Save the original queue order
+                _originalQueue.clear()
+                _originalQueue.addAll(_queue)
+                
+                // Shuffle the queue
+                val tempList = _queue.toMutableList()
+                tempList.shuffle()
+                
+                // Update the queue
+                _queue.clear()
+                _queue.addAll(tempList)
+                _queueLiveData.value = _queue.toList()
+            }
+        } else {
+            // Disable shuffle, restore original order
+            if (_originalQueue.isNotEmpty()) {
+                _queue.clear()
+                _queue.addAll(_originalQueue)
+                _queueLiveData.value = _queue.toList()
+            }
+        }
+        
+        Log.d("MusicPlayerViewModel", "Shuffle is now ${if (_isShuffleEnabled.value == true) "enabled" else "disabled"}")
+    }
 
     fun seekTo(position: Int) {
         mediaPlayerService?.seekTo(position)
@@ -159,16 +202,21 @@ class MusicPlayerViewModel(
 
     fun addToQueue(song: Song) {
         _queue.add(song)
+        if (_isShuffleEnabled.value == false) {
+            _originalQueue.add(song)
+        }
         _queueLiveData.value = _queue.toList()
     }
 
     fun removeFromQueue(song: Song) {
         _queue.remove(song)
+        _originalQueue.remove(song)
         _queueLiveData.value = _queue.toList()
     }
 
     fun clearQueue() {
         _queue.clear()
+        _originalQueue.clear()
         _queueLiveData.value = emptyList()
     }
 
@@ -177,6 +225,9 @@ class MusicPlayerViewModel(
             if (_queue.isNotEmpty()) {
                 // Ambil lagu pertama dari queue & hapus dari antrian
                 val nextSong = _queue.removeFirst()
+                if (_isShuffleEnabled.value == false && _originalQueue.isNotEmpty()) {
+                    _originalQueue.remove(nextSong)
+                }
                 _queueLiveData.postValue(_queue.toList())
 
                 // Mainin lagu dari queue
@@ -188,15 +239,27 @@ class MusicPlayerViewModel(
                     songRepository.incrementPlayCount(songId)
                 }
             } else {
-                // Queue kosong, ambil lagu berikutnya dari library normal
                 currentSong.value?.let { currentSong ->
-                    val nextSong = songRepository.getNextSong(currentSong.id)
-                    nextSong?.let {
-                        playSong(it)
+                    if (_isShuffleEnabled.value == true) {
+                        viewModelScope.launch {
+                            val allSongs = songRepository.getAllSongsOrdered()
+                            if (allSongs.isNotEmpty()) {
+                                val randomIndex = Random.nextInt(allSongs.size)
+                                val randomSong = allSongs[randomIndex]
+                                playSong(randomSong)
 
-                        // Update database
-                        songRepository.updateLastPlayed(it.id)
-                        songRepository.incrementPlayCount(it.id)
+                                songRepository.updateLastPlayed(randomSong.id)
+                                songRepository.incrementPlayCount(randomSong.id)
+                            }
+                        }
+                    } else {
+                        val nextSong = songRepository.getNextSong(currentSong.id)
+                        nextSong?.let {
+                            playSong(it)
+
+                            songRepository.updateLastPlayed(it.id)
+                            songRepository.incrementPlayCount(it.id)
+                        }
                     }
                 }
             }
@@ -206,13 +269,30 @@ class MusicPlayerViewModel(
     fun playPrevious() {
         viewModelScope.launch {
             currentSong.value?.let { currentSong ->
-                val previousSong = songRepository.getPreviousSong(currentSong.id)
-                previousSong?.let {
-                    playSong(it)
+                if (_isShuffleEnabled.value == true) {
+                    // In shuffle mode, get a random song
+                    viewModelScope.launch {
+                        val allSongs = songRepository.getAllSongsOrdered()
+                        if (allSongs.isNotEmpty()) {
+                            val randomIndex = Random.nextInt(allSongs.size)
+                            val randomSong = allSongs[randomIndex]
+                            playSong(randomSong)
+                            
+                            // Update database
+                            songRepository.updateLastPlayed(randomSong.id)
+                            songRepository.incrementPlayCount(randomSong.id)
+                        }
+                    }
+                } else {
+                    // Normal sequential playback
+                    val previousSong = songRepository.getPreviousSong(currentSong.id)
+                    previousSong?.let {
+                        playSong(it)
 
-                    // Update database
-                    songRepository.updateLastPlayed(it.id)
-                    songRepository.incrementPlayCount(it.id)
+                        // Update database
+                        songRepository.updateLastPlayed(it.id)
+                        songRepository.incrementPlayCount(it.id)
+                    }
                 }
             }
         }

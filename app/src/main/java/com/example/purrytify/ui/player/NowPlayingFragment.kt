@@ -1,5 +1,9 @@
 package com.example.purrytify.ui.player
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -15,11 +19,13 @@ import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.databinding.FragmentNowPlayingBinding
 import java.util.concurrent.TimeUnit
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.example.purrytify.utils.BackgroundColorProvider
 import kotlinx.coroutines.launch
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class NowPlayingFragment : Fragment() {
 
@@ -34,6 +40,20 @@ class NowPlayingFragment : Fragment() {
             requireActivity().application,
             SongRepository(AppDatabase.getInstance(requireContext()).songDao(), requireContext().applicationContext)
         )
+    }
+    
+    // BroadcastReceiver untuk mendeteksi ketika lagu selesai diputar
+    private val playNextReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            Log.d("NowPlayingFragment", "Received broadcast to play next song")
+            if (intent?.action == "com.example.purrytify.PLAY_NEXT") {
+                try {
+                    musicPlayerViewModel.playNext()
+                } catch (e: Exception) {
+                    Log.e("NowPlayingFragment", "Error playing next song", e)
+                }
+            }
+        }
     }
 
     override fun onCreateView(
@@ -52,6 +72,31 @@ class NowPlayingFragment : Fragment() {
         setupUI()
         setupControls()
         observeViewModel()
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Register broadcast receiver when fragment is visible
+        try {
+            val filter = IntentFilter("com.example.purrytify.PLAY_NEXT")
+            LocalBroadcastManager.getInstance(requireContext())
+                .registerReceiver(playNextReceiver, filter)
+            Log.d("NowPlayingFragment", "Registered broadcast receiver")
+        } catch (e: Exception) {
+            Log.e("NowPlayingFragment", "Error registering receiver", e)
+        }
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // Unregister receiver when fragment is not visible
+        try {
+            LocalBroadcastManager.getInstance(requireContext())
+                .unregisterReceiver(playNextReceiver)
+            Log.d("NowPlayingFragment", "Unregistered broadcast receiver")
+        } catch (e: Exception) {
+            Log.e("NowPlayingFragment", "Error unregistering receiver", e)
+        }
     }
 
     private fun setupUI() {
@@ -141,6 +186,10 @@ class NowPlayingFragment : Fragment() {
             musicPlayerViewModel.playNext()
         }
 
+        binding.btnShuffle.setOnClickListener {
+            musicPlayerViewModel.toggleShuffle()
+        }
+
         binding.btnQueue.setOnClickListener {
             showQueueBottomSheet()
         }
@@ -176,6 +225,18 @@ class NowPlayingFragment : Fragment() {
                 R.drawable.ic_play
             }
             binding.btnPlayPause.setImageResource(icon)
+        }
+
+        musicPlayerViewModel.isShuffleEnabled.observe(viewLifecycleOwner) { isShuffleEnabled ->
+            Log.d("NowPlayingFragment", "Shuffle status changed to: $isShuffleEnabled")
+            val shuffleIcon = if (isShuffleEnabled) {
+                Log.d("NowPlayingFragment", "Setting shuffle icon to active")
+                R.drawable.ic_shuffle_active
+            } else {
+                Log.d("NowPlayingFragment", "Setting shuffle icon to default")
+                R.drawable.ic_shuffle
+            }
+            binding.btnShuffle.setImageResource(shuffleIcon)
         }
 
         musicPlayerViewModel.progress.observe(viewLifecycleOwner) { progress ->

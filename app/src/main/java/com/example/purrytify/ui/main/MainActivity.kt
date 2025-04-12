@@ -41,6 +41,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tokenRefreshManager: TokenRefreshManager
     private lateinit var musicPlayerViewModel: MusicPlayerViewModel
 
+    // BroadcastReceiver untuk mendengarkan event lagu selesai
+    private val songCompletionReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            if (intent?.action == "com.example.purrytify.PLAY_NEXT") {
+                Log.d("MainActivity", "Broadcast received: song completed, playing next song")
+                musicPlayerViewModel.playNext()
+            }
+        }
+    }
+
     private var currentTab = R.id.navigation_home
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -385,6 +395,32 @@ class MainActivity : AppCompatActivity() {
 
         // Debug: Print back stack after navigation
         logBackStack(navController)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Only register receiver if we have a valid ViewModel
+        if (::musicPlayerViewModel.isInitialized) {
+            try {
+                val filter = android.content.IntentFilter("com.example.purrytify.PLAY_NEXT")
+                registerReceiver(songCompletionReceiver, filter)
+                Log.d("MainActivity", "Registered song completion broadcast receiver")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error registering receiver: ${e.message}")
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Hapus pendaftaran receiver saat activity di-pause
+        try {
+            unregisterReceiver(songCompletionReceiver)
+            Log.d("MainActivity", "Unregistered song completion broadcast receiver")
+        } catch (e: Exception) {
+            // Tangani jika receiver belum terdaftar
+            Log.e("MainActivity", "Error unregistering receiver: ${e.message}")
+        }
     }
 
     override fun onDestroy() {

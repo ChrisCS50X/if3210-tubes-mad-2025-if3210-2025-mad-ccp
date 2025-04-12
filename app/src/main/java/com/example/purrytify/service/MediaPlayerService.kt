@@ -19,6 +19,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.purrytify.R
 import com.example.purrytify.data.model.Song
 import com.example.purrytify.ui.main.MainActivity
@@ -182,6 +183,26 @@ class MediaPlayerService : LifecycleService() {
 
                 setOnCompletionListener {
                     Log.d(TAG, "MediaPlayer onCompletion: Playback completed")
+                    
+                    // Use a safer approach - post to main handler instead of broadcasting
+                    mainHandler.post {
+                        try {
+                            // Langsung update status playing
+                            _isPlaying.postValue(false)
+                            
+                            // Gunakan LocalBroadcastManager untuk pengiriman broadcast yang lebih aman
+                            try {
+                                val intent = Intent("com.example.purrytify.PLAY_NEXT")
+                                LocalBroadcastManager.getInstance(applicationContext)
+                                    .sendBroadcast(intent)
+                                Log.d(TAG, "MediaPlayer onCompletion: Local broadcast sent to play next song")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "MediaPlayer onCompletion: Error sending local broadcast", e)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "MediaPlayer onCompletion: Error in completion handler", e)
+                        }
+                    }
                 }
 
                 setOnErrorListener { _, what, extra ->
