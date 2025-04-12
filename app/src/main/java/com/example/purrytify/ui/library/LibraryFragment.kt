@@ -36,7 +36,7 @@ class LibraryFragment : Fragment() {
         setupViewPager()
         setupSearchListener()
 
-        binding.buttonAddSong.setOnClickListener {
+        binding.buttonFavorite.setOnClickListener {
             AddSongDialogFragment().show(childFragmentManager, "add_song_dialog")
         }
     }

@@ -21,7 +21,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
-        android:id="@+id/button_add_song"
+        android:id="@+id/button_favorite"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:src="@drawable/ic_plus"
@@ -33,7 +33,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@id/text_library_header"
         app:layout_constraintBottom_toBottomOf="@id/text_library_header"
-        android:contentDescription="Add a new song" />
+        android:contentDescription="Favorite song" />
 
     <EditText
         android:id="@+id/etSearch"

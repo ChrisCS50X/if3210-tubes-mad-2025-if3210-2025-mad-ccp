@@ -15,9 +15,11 @@ import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.databinding.FragmentNowPlayingBinding
 import java.util.concurrent.TimeUnit
 import android.util.Log
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.example.purrytify.utils.BackgroundColorProvider
+import kotlinx.coroutines.launch
 
 class NowPlayingFragment : Fragment() {
 
@@ -25,6 +27,7 @@ class NowPlayingFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val args: NowPlayingFragmentArgs by navArgs()
+    private lateinit var songRepository: SongRepository
 
     private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
         MusicPlayerViewModelFactory(
@@ -39,6 +42,7 @@ class NowPlayingFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentNowPlayingBinding.inflate(inflater, container, false)
+        songRepository = SongRepository(AppDatabase.getInstance(requireContext()).songDao(), requireContext().applicationContext)
         return binding.root
     }
 
@@ -57,14 +61,44 @@ class NowPlayingFragment : Fragment() {
             findNavController().navigateUp()
         }
 
+        // Set up favorite button functionality
+        binding.btnFavorite.setOnClickListener {
+            musicPlayerViewModel.currentSong.value?.let { song ->
+                lifecycleScope.launch {
+                    if (songRepository.getLikedStatusBySongId(song.id)) {
+                        songRepository.updateLikeStatus(song.id, false)
+                        binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
+                    } else {
+                        songRepository.updateLikeStatus(song.id, true)
+                        binding.btnFavorite.setImageResource(R.drawable.ic_heart_filled)
+                    }
+                }
+            }
+        }
+
         args.song?.let { song ->
             updateSongInfo(song)
+            // Initialize favorite button state
+            lifecycleScope.launch {
+                val isLiked = songRepository.getLikedStatusBySongId(song.id)
+                binding.btnFavorite.setImageResource(
+                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                )
+            }
         }
     }
 
     private fun updateSongInfo(song: com.example.purrytify.data.model.Song) {
         binding.tvSongTitle.text = song.title
         binding.tvArtistName.text = song.artist
+
+        // Update favorite button state when song changes
+        lifecycleScope.launch {
+            val isLiked = songRepository.getLikedStatusBySongId(song.id)
+            binding.btnFavorite.setImageResource(
+                if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+            )
+        }
 
         Glide.with(this)
             .load(song.coverUrl)
@@ -79,8 +113,13 @@ class NowPlayingFragment : Fragment() {
         binding.tvTotalDuration.text = String.format("%02d:%02d", minutes, seconds)
 
         if (isAdded && !isDetached) {
-            val backgroundColor = BackgroundColorProvider.getColorForSong(song)
-            BackgroundColorProvider.applyColorSafely(binding.layoutNowPlaying, backgroundColor)
+            try {
+                val gradient = BackgroundColorProvider.createGradientBackground(requireContext(), song)
+                binding.layoutNowPlaying.background = gradient
+            } catch (e: Exception) {
+                Log.e("NowPlayingFragment", "Error setting gradient background: ${e.message}")
+                binding.layoutNowPlaying.setBackgroundColor(android.graphics.Color.BLACK)
+            }
         }
     }
 

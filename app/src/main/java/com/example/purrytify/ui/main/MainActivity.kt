@@ -241,7 +241,7 @@ class MainActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 val isLiked =repository.getLikedStatusBySongId(song.id)
                 binding.miniPlayer.btnAddLiked.setImageResource(
-                    if (isLiked) R.drawable.ic_minus else R.drawable.ic_plus
+                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
                 )
             }
         }
@@ -263,14 +263,13 @@ class MainActivity : AppCompatActivity() {
                 lifecycleScope.launch {
                     if(repository.getLikedStatusBySongId(song.id)){
                         repository.updateLikeStatus(song.id, false)
-                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_plus)
+                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_heart_outline)
                     }
                     else{
                         repository.updateLikeStatus(song.id, true)
-                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_minus)
+                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_heart_filled)
                     }
                 }
-
             }
         }
 
@@ -313,7 +312,7 @@ class MainActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 val isLiked = repository.getLikedStatusBySongId(currentSong.id)
                 binding.miniPlayer.btnAddLiked.setImageResource(
-                    if (isLiked) R.drawable.ic_minus else R.drawable.ic_plus
+                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
                 )
             }
         }
