@@ -6,7 +6,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.purrytify.R
 import com.example.purrytify.data.model.Song
-import com.example.purrytify.databinding.ItemSongBinding
+import com.example.purrytify.databinding.ItemRecentlyPlayedBinding
 import java.util.concurrent.TimeUnit
 
 class RecentlyPlayedAdapter(
@@ -14,7 +14,7 @@ class RecentlyPlayedAdapter(
     private val onItemClick: (Song) -> Unit
 ) : RecyclerView.Adapter<RecentlyPlayedAdapter.RecentlyPlayedViewHolder>() {
 
-    inner class RecentlyPlayedViewHolder(private val binding: ItemSongBinding) :
+    inner class RecentlyPlayedViewHolder(private val binding: ItemRecentlyPlayedBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(song: Song) {
@@ -42,7 +42,7 @@ class RecentlyPlayedAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecentlyPlayedViewHolder {
-        val binding = ItemSongBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding = ItemRecentlyPlayedBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return RecentlyPlayedViewHolder(binding)
     }
 

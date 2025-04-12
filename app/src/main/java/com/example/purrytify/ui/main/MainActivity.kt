@@ -277,8 +277,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMiniPlayer(song: Song) {
+        val database = AppDatabase.getInstance(this)
+        val repository = SongRepository(database.songDao(), applicationContext)
+
         binding.miniPlayer.tvMiniTitle.text = song.title
         binding.miniPlayer.tvMiniArtist.text = song.artist
+
+        musicPlayerViewModel.currentSong.value?.let { song ->
+            lifecycleScope.launch {
+                val isLiked =repository.getLikedStatusBySongId(song.id)
+                binding.miniPlayer.btnAddLiked.setImageResource(
+                    if (isLiked) R.drawable.ic_minus else R.drawable.ic_plus
+                )
+            }
+        }
 
         // Load cover art with Glide
         Glide.with(this)
