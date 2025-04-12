@@ -179,11 +179,6 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
         val artist = binding.editArtist.text.toString().trim()
 
         // Validation
-        if (selectedAudioUri == null) {
-            Toast.makeText(requireContext(), "Please select an audio file", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         if (title.isEmpty()) {
             binding.inputLayoutTitle.error = "Title is required"
             return
@@ -199,17 +194,19 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
         }
 
         try {
-            // Take persistable permission for AudioUri
-            requireContext().contentResolver.takePersistableUriPermission(
-                selectedAudioUri!!,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
+            // Take persistable permission for AudioUri if selected
+            selectedAudioUri?.let { uri ->
+                requireContext().contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
 
             // Take persistable permission for artwork if selected
-            selectedArtworkUri?.let {
+            selectedArtworkUri?.let { uri ->
                 try {
                     requireContext().contentResolver.takePersistableUriPermission(
-                        it,
+                        uri,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
                 } catch (e: SecurityException) {
@@ -217,11 +214,15 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
                 }
             }
 
+            // Determine file path
+            val tempFilePath = selectedAudioUri?.toString() ?: song.filePath
+
             // Update the song
             val updatedSong = song.copy(
                 title = title,
                 artist = artist,
-                coverUrl = selectedArtworkUri?.toString() ?: song.coverUrl
+                coverUrl = selectedArtworkUri?.toString() ?: song.coverUrl,
+                filePath = tempFilePath
             )
 
             viewModel.updateSong(updatedSong, requireContext().applicationContext)
@@ -232,6 +233,7 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
             e.printStackTrace()
         }
     }
+
 
     private fun getFileName(uri: Uri): String {
         val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
