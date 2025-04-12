@@ -15,6 +15,8 @@ import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.service.MediaPlayerService
 import kotlinx.coroutines.launch
 import android.util.Log
+import java.util.LinkedList
+
 
 class MusicPlayerViewModel(
     application: Application,
@@ -41,6 +43,13 @@ class MusicPlayerViewModel(
 
     private val _duration = MutableLiveData<Int>()
     val duration: LiveData<Int> = _duration
+
+    // Queue untuk menyimpan lagu-lagu yang antri
+    private val _queue = LinkedList<Song>()
+
+    // LiveData untuk UI yang mau nampilin queue
+    private val _queueLiveData = MutableLiveData<List<Song>>(emptyList())
+    val queueLiveData: LiveData<List<Song>> = _queueLiveData
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -148,30 +157,63 @@ class MusicPlayerViewModel(
         }
     }
 
-    fun playNextSong() {
+    fun addToQueue(song: Song) {
+        _queue.add(song)
+        _queueLiveData.value = _queue.toList()
+    }
+
+    fun removeFromQueue(song: Song) {
+        _queue.remove(song)
+        _queueLiveData.value = _queue.toList()
+    }
+
+    fun clearQueue() {
+        _queue.clear()
+        _queueLiveData.value = emptyList()
+    }
+
+    fun playNext() {
         viewModelScope.launch {
-            val currentSong = _currentSong.value ?: return@launch
-            try {
-                val nextSong = songRepository.getNextSong(currentSong.id)
-                nextSong?.let {
-                    playSong(it)
+            if (_queue.isNotEmpty()) {
+                // Ambil lagu pertama dari queue & hapus dari antrian
+                val nextSong = _queue.removeFirst()
+                _queueLiveData.postValue(_queue.toList())
+
+                // Mainin lagu dari queue
+                playSong(nextSong)
+
+                // Update database
+                nextSong.id.let { songId ->
+                    songRepository.updateLastPlayed(songId)
+                    songRepository.incrementPlayCount(songId)
                 }
-            } catch (e: Exception) {
-                Log.e("MusicPlayerViewModel", "Error playing next song", e)
+            } else {
+                // Queue kosong, ambil lagu berikutnya dari library normal
+                currentSong.value?.let { currentSong ->
+                    val nextSong = songRepository.getNextSong(currentSong.id)
+                    nextSong?.let {
+                        playSong(it)
+
+                        // Update database
+                        songRepository.updateLastPlayed(it.id)
+                        songRepository.incrementPlayCount(it.id)
+                    }
+                }
             }
         }
     }
 
-    fun playPreviousSong() {
+    fun playPrevious() {
         viewModelScope.launch {
-            val currentSong = _currentSong.value ?: return@launch
-            try {
+            currentSong.value?.let { currentSong ->
                 val previousSong = songRepository.getPreviousSong(currentSong.id)
                 previousSong?.let {
                     playSong(it)
+
+                    // Update database
+                    songRepository.updateLastPlayed(it.id)
+                    songRepository.incrementPlayCount(it.id)
                 }
-            } catch (e: Exception) {
-                Log.e("MusicPlayerViewModel", "Error playing previous song", e)
             }
         }
     }

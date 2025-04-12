@@ -61,16 +61,25 @@ class LikedSongsFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        songAdapter = SongAdapter { song, view ->
-            showPopupMenu(song, view)
-        }
+        songAdapter = SongAdapter(
+            requireContext(),
+            onAddToQueueListener = { song ->
+                musicPlayerViewModel.addToQueue(song)
+                Toast.makeText(requireContext(), "${song.title} added to queue", Toast.LENGTH_SHORT).show()
+            },
+            onEditListener = { song ->
+                Toast.makeText(requireContext(), "Edit ${song.title}", Toast.LENGTH_SHORT).show()
+                // Implementasi edit di sini
+            },
+            onDeleteListener = { song ->
+                viewModel.deleteSongById(song.id)
+            }
+        )
+
         binding.recyclerViewLikedSongs.apply {
             adapter = songAdapter
             addItemDecoration(
-                DividerItemDecoration(
-                    requireContext(),
-                    DividerItemDecoration.VERTICAL
-                )
+                DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL)
             )
         }
 

@@ -1,8 +1,10 @@
 package com.example.purrytify.ui.adapter
 
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.purrytify.R
@@ -11,7 +13,10 @@ import com.example.purrytify.databinding.ItemSongBinding
 import java.util.concurrent.TimeUnit
 
 class SongAdapter(
-    private val onMenuClickListener: (Song, View) -> Unit
+    private val context: Context,
+    private val onAddToQueueListener: (Song) -> Unit,
+    private val onEditListener: (Song) -> Unit,
+    private val onDeleteListener: (Song) -> Unit
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
     private var songs = emptyList<Song>()
@@ -42,18 +47,43 @@ class SongAdapter(
 
         init {
             binding.root.setOnClickListener {
-                val position = adapterPosition
+                val position = bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     onItemClickListener?.invoke(songs[position])
                 }
             }
 
-            binding.imageMenu.setOnClickListener{ view ->
-                val position = adapterPosition
+            binding.imageMenu.setOnClickListener { view ->
+                val position = bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
-                    onMenuClickListener(songs[position], view)
+                    showPopupMenu(view, songs[position])
                 }
             }
+        }
+
+        private fun showPopupMenu(view: View, song: Song) {
+            val popup = PopupMenu(context, view)
+            popup.menuInflater.inflate(R.menu.menu_song_item, popup.menu)
+
+            popup.setOnMenuItemClickListener { menuItem ->
+                when (menuItem.itemId) {
+                    R.id.action_add_to_queue -> {
+                        onAddToQueueListener(song)
+                        true
+                    }
+                    R.id.action_edit -> {
+                        onEditListener(song)
+                        true
+                    }
+                    R.id.action_delete -> {
+                        onDeleteListener(song)
+                        true
+                    }
+                    else -> false
+                }
+            }
+
+            popup.show()
         }
 
         fun bind(song: Song) {
@@ -65,11 +95,12 @@ class SongAdapter(
             song.coverUrl?.let { url ->
                 Glide.with(binding.root)
                     .load(url)
-                    .placeholder(R.drawable.placeholder_album)
+                    .placeholder(R.drawable.placeholder_image)
+                    .error(R.drawable.placeholder_image)
                     .into(binding.imageSong)
             } ?: run {
                 // Set default image if no cover
-                binding.imageSong.setImageResource(R.drawable.placeholder_album)
+                binding.imageSong.setImageResource(R.drawable.placeholder_image)
             }
         }
 

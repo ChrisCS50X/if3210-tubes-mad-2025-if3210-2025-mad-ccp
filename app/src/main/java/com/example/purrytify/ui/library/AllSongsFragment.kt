@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupMenu
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -61,9 +62,20 @@ class AllSongsFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        songAdapter = SongAdapter { song, view ->
-            showPopupMenu(song, view)
-        }
+        songAdapter = SongAdapter(
+            requireContext(),
+            onAddToQueueListener = { song ->
+                musicPlayerViewModel.addToQueue(song)
+                Toast.makeText(requireContext(), "${song.title} added to queue", Toast.LENGTH_SHORT).show()
+            },
+            onEditListener = { song ->
+                val editDialog = EditSongDialogFragment(song)
+                editDialog.show(parentFragmentManager, "EditSongDialog")
+            },
+            onDeleteListener = { song ->
+                viewModel.deleteSongById(song.id)
+            }
+        )
 
         binding.recyclerViewAllSongs.apply {
             adapter = songAdapter
@@ -76,28 +88,6 @@ class AllSongsFragment : Fragment() {
             viewModel.playSong(song)
             musicPlayerViewModel.playSong(song)
         }
-    }
-
-    private fun showPopupMenu(song: Song, anchor: View) {
-        val popupMenu = PopupMenu(requireContext(), anchor)
-        popupMenu.menuInflater.inflate(R.menu.menu_song_item, popupMenu.menu)
-
-        popupMenu.setOnMenuItemClickListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.action_edit -> {
-                    val editDialog = EditSongDialogFragment(song)
-                    editDialog.show(parentFragmentManager, "EditSongDialog")
-                    true
-                }
-                R.id.action_delete -> {
-                    viewModel.deleteSongById(song.id)
-                    true
-                }
-                else -> false
-            }
-        }
-
-        popupMenu.show()
     }
 
     private fun observeViewModel() {

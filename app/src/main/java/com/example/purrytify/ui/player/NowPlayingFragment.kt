@@ -94,12 +94,16 @@ class NowPlayingFragment : Fragment() {
             if (currentPosition > 3000) {
                 musicPlayerViewModel.seekTo(0)
             } else {
-                musicPlayerViewModel.playPreviousSong()
+                musicPlayerViewModel.playPrevious()
             }
         }
 
         binding.btnNext.setOnClickListener {
-            musicPlayerViewModel.playNextSong()
+            musicPlayerViewModel.playNext()
+        }
+
+        binding.btnQueue.setOnClickListener {
+            showQueueBottomSheet()
         }
 
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -114,6 +118,11 @@ class NowPlayingFragment : Fragment() {
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
+    }
+
+    private fun showQueueBottomSheet() {
+        val bottomSheet = QueueBottomSheetFragment()
+        bottomSheet.show(childFragmentManager, "QueueBottomSheet")
     }
 
     private fun observeViewModel() {
