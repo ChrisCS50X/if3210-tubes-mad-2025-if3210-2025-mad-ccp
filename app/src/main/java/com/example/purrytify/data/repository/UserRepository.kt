@@ -11,20 +11,31 @@ import kotlinx.coroutines.withContext
 import com.example.purrytify.util.executeWithTokenRefresh
 import android.util.Log
 
+/**
+ * Repository untuk managemen data user dan autentikasi.
+ * Bertanggung jawab untuk komunikasi dengan backend API dan
+ * menyimpan data login ke penyimpanan lokal.
+ */
 class UserRepository(private val tokenManager: TokenManager) {
 
+    // Ambil instance API service dari NetworkModule
     private val apiService = NetworkModule.apiService
 
+    /**
+     * Proses login user.
+     * Panggil API login dan simpan token yang diterima.
+     * @return Result<LoginResponse> berisi hasil sukses atau error
+     */
     suspend fun login(email: String, password: String): Result<LoginResponse> {
         return withContext(Dispatchers.IO) {
             try {
                 val loginRequest = LoginRequest(email, password)
                 val response = apiService.login(loginRequest)
 
-                // Save the authentication token
+                // Simpan access token
                 response.token?.let { tokenManager.saveToken(it) }
 
-                // Save refresh token if it's included in response
+                // Simpan refresh token kalo ada
                 response.refreshToken?.let { tokenManager.saveRefreshToken(it) }
 
                 Result.success(response)
@@ -34,6 +45,10 @@ class UserRepository(private val tokenManager: TokenManager) {
         }
     }
 
+    /**
+     * Ambil data profile user yang login.
+     * Pake helper executeWithTokenRefresh supaya otomatis refresh kalo token expired.
+     */
     suspend fun getUserProfile(): Result<UserProfile> {
         if (!tokenManager.isLoggedIn()) {
             return Result.failure(IllegalStateException("Not logged in"))
@@ -45,6 +60,10 @@ class UserRepository(private val tokenManager: TokenManager) {
         }
     }
 
+    /**
+     * Cek apakah token yang dimiliki masih valid.
+     * Dipanggil pas awal app dibuka untuk verifikasi login.
+     */
     suspend fun verifyToken(): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -58,6 +77,10 @@ class UserRepository(private val tokenManager: TokenManager) {
         }
     }
 
+    /**
+     * Minta token baru pake refresh token.
+     * Dipanggil otomatis saat token expired waktu request API.
+     */
     suspend fun refreshToken(): Result<LoginResponse> {
         return withContext(Dispatchers.IO) {
             try {
@@ -68,7 +91,7 @@ class UserRepository(private val tokenManager: TokenManager) {
                 val request = RefreshTokenRequest(refreshToken)
                 val response = apiService.refreshToken(request)
 
-                // Save the new tokens
+                // Simpan token-token baru
                 response.token?.let { tokenManager.saveToken(it) }
                 response.refreshToken?.let { tokenManager.saveRefreshToken(it) }
 
@@ -80,6 +103,9 @@ class UserRepository(private val tokenManager: TokenManager) {
         }
     }
 
+    /**
+     * Proses logout user dengan hapus token dari penyimpanan.
+     */
     fun logout() {
         tokenManager.clearTokens()
     }
