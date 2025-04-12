@@ -3,7 +3,6 @@ package com.example.purrytify.data.repository
 import android.content.Context
 import com.example.purrytify.data.local.TokenManager
 import com.example.purrytify.data.local.dao.SongDao
-import com.example.purrytify.data.local.entity.SongEntity
 import com.example.purrytify.data.model.Song
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -26,6 +25,10 @@ class SongRepository(private val songDao: SongDao, context: Context) {
 
     suspend fun incrementPlayCount(songId: Long) {
         songDao.incrementPlayCount(songId)
+    }
+
+    suspend fun deleteSong(songId: Long) {
+        songDao.deleteSongById(songId)
     }
 
     suspend fun toggleLikedStatus(songId: Long, isLiked: Boolean) {

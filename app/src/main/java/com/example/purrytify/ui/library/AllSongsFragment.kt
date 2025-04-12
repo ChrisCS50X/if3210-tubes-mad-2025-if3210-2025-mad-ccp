@@ -4,12 +4,15 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.DividerItemDecoration
+import com.example.purrytify.R
 import com.example.purrytify.data.local.AppDatabase
+import com.example.purrytify.data.model.Song
 import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.databinding.FragmentAllSongsBinding
 import com.example.purrytify.ui.adapter.SongAdapter
@@ -56,7 +59,9 @@ class AllSongsFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        songAdapter = SongAdapter()
+        songAdapter = SongAdapter { song, view ->
+            showPopupMenu(song, view)
+        }
         binding.recyclerViewAllSongs.apply {
             adapter = songAdapter
             addItemDecoration(
@@ -75,6 +80,29 @@ class AllSongsFragment : Fragment() {
             musicPlayerViewModel.playSong(song)
         }
     }
+
+    private fun showPopupMenu(song: Song, anchor: View) {
+        val popupMenu = PopupMenu(requireContext(), anchor)
+        popupMenu.menuInflater.inflate(R.menu.menu_song_item, popupMenu.menu)
+
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_edit -> {
+                    Toast.makeText(requireContext(), "Edit ${song.title}", Toast.LENGTH_SHORT).show()
+                    // Implementasi edit di sini
+                    true
+                }
+                R.id.action_delete -> {
+                    viewModel.deleteSongById(song.id)
+                    true
+                }
+                else -> false
+            }
+        }
+
+        popupMenu.show()
+    }
+
 
     private fun observeViewModel() {
         viewModel.allSongs.observe(viewLifecycleOwner) { songs ->

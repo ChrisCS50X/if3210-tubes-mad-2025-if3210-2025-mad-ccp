@@ -17,4 +17,6 @@
     <string name="indonesia">Indonesia</string>
     <string name="_135">135</string>
     <string name="_13522xxx">13522xxx</string>
+    <string name="edit">Edit</string>
+    <string name="delete">Delete</string>
 </resources>

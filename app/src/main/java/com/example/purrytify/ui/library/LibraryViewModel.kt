@@ -28,6 +28,12 @@ class LibraryViewModel(application: Application, context: Context) : AndroidView
         likedSongs = repository.likedSongs.asLiveData()
     }
 
+    fun deleteSongById(songId: Long) {
+        viewModelScope.launch {
+            repository.deleteSong(songId)
+        }
+    }
+
     fun playSong(song: Song) {
         viewModelScope.launch {
             repository.incrementPlayCount(song.id)

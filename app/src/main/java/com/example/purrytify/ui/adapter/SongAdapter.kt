@@ -1,6 +1,7 @@
 package com.example.purrytify.ui.adapter
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -9,7 +10,9 @@ import com.example.purrytify.data.model.Song
 import com.example.purrytify.databinding.ItemSongBinding
 import java.util.concurrent.TimeUnit
 
-class SongAdapter : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
+class SongAdapter(
+    private val onMenuClickListener: (Song, View) -> Unit
+) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
     private var songs = emptyList<Song>()
     private var onItemClickListener: ((Song) -> Unit)? = null
@@ -42,6 +45,13 @@ class SongAdapter : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     onItemClickListener?.invoke(songs[position])
+                }
+            }
+
+            binding.imageMenu.setOnClickListener{ view ->
+                val position = adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    onMenuClickListener(songs[position], view)
                 }
             }
         }
