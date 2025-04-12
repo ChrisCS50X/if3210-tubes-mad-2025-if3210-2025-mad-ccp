@@ -99,62 +99,102 @@ Dengan desain modern, fitur lengkap, dan fokus pada pengalaman pengguna, Purryti
 
 27. **androidx.security:security-crypto** - Library keamanan untuk enkripsi data.
 
+
 ## 📸  *Screenshot* Aplikasi
+
+<div style="display: flex; flex-wrap: wrap; justify-content: space-around; gap: 20px;">
+    <div>
+        <img src="screenshot/Add Song.png" alt="Add Song" width="200" />
+        <p style="text-align: center;">Add Song</p>
+    </div>
+    <div>
+        <img src="screenshot/Edit Song.png" alt="Edit Song" width="200" />
+        <p style="text-align: center;">Edit Song</p>
+    </div>
+    <div>
+        <img src="screenshot/Home.png" alt="Home" width="200" />
+        <p style="text-align: center;">Home</p>
+    </div>
+    <div>
+        <img src="screenshot/Library - All Song.png" alt="Library - All Song" width="200" />
+        <p style="text-align: center;">Library - All Song</p>
+    </div>
+    <div>
+        <img src="screenshot/Library - Liked.png" alt="Library - Liked" width="200" />
+        <p style="text-align: center;">Library - Liked</p>
+    </div>
+    <div>
+        <img src="screenshot/Login.png" alt="Login" width="200" />
+        <p style="text-align: center;">Login</p>
+    </div>
+    <div>
+        <img src="screenshot/Profile.png" alt="Profile" width="200" />
+        <p style="text-align: center;">Profile</p>
+    </div>
+    <div>
+        <img src="screenshot/Queue.png" alt="Queue" width="200" />
+        <p style="text-align: center;">Queue</p>
+    </div>
+    <div>
+        <img src="screenshot/Track View.png" alt="Track View" width="200" />
+        <p style="text-align: center;">Track View</p>
+    </div>
+</div>
 
 
 ## 🧑‍💻 Pembagian Kerja Anggota Kelompok
 
 1. Aland Mulia Pratama - 13522124
 
-- Implementasi halaman profil dan validasi data pengguna.
+    - Implementasi halaman profil dan validasi data pengguna.
 
-- Penyempurnaan halaman Home dan Library (integrasi liked songs, recently played).
+    - Penyempurnaan halaman Home dan Library (integrasi liked songs, recently played).
 
-- Implementasi fitur penghapusan, pengeditan lagu, dan validasi berdasarkan userID.
+    - Implementasi fitur penghapusan, pengeditan lagu, dan validasi berdasarkan userID.
 
-- Pengerjaan fitur Network Sensing untuk profil dan login.
+    - Pengerjaan fitur Network Sensing untuk profil dan login.
 
-- Pengelolaan font dan elemen visual di berbagai halaman.
+    - Pengelolaan font dan elemen visual di berbagai halaman.
 
-- Menambahkan fitur OWASP (M4) untuk keamanan aplikasi.
+    - Menambahkan fitur OWASP (M4) untuk keamanan aplikasi.
 
-- Menulis README.md.
+    - Menulis README.md.
 
-- Memperbaiki bug pada Edit Song
+    - Memperbaiki bug pada Edit Song
 
 2. Christian Justin Hendrawan - 13522135
 
-- Inisialisasi proyek dan pengaturan awal (commit awal, setup project).
+    - Inisialisasi proyek dan pengaturan awal (commit awal, setup project).
 
-- Implementasi fitur login, logout, dan dekorasi halaman login.
+    - Implementasi fitur login, logout, dan dekorasi halaman login.
 
-- Pengerjaan fungsi-fungsi library, integrasi database ke Home, dan refactor token.
+    - Pengerjaan fungsi-fungsi library, integrasi database ke Home, dan refactor token.
 
-- Pembuatan mekanisme penambahan lagu.
+    - Pembuatan mekanisme penambahan lagu.
 
-- Pemutakhiran halaman Library dan Home.
+    - Pemutakhiran halaman Library dan Home.
 
-- Pengerjaan background service untuk token refresher.
+    - Pengerjaan background service untuk token refresher.
 
-- Perbaikan integrasi profil dan edge case navigasi.
+    - Perbaikan integrasi profil dan edge case navigasi.
 
-- Pengembangan fitur like/unlike, queue, serta pengaturan mini player.
+    - Pengembangan fitur like/unlike, queue, serta pengaturan mini player.
 
-- Penambahan komentar pada berbagai komponen.
+    - Penambahan komentar pada berbagai komponen.
 
 3. Jason Fernando - 13522156
 
-- Pengembangan halaman Home, splash screen, dan media player.
+    - Pengembangan halaman Home, splash screen, dan media player.
 
-- Integrasi mini player dengan halaman Now Playing.
+    - Integrasi mini player dengan halaman Now Playing.
 
-- Implementasi fitur pencarian di Library.
+    - Implementasi fitur pencarian di Library.
 
-- Pengerjaan fitur ekstraksi warna dari gambar album.
+    - Pengerjaan fitur ekstraksi warna dari gambar album.
 
-- Refactor tampilan trek dan fitur pemutar lagu.
+    - Refactor tampilan trek dan fitur pemutar lagu.
 
-- Penambahan komentar pada kode.
+    - Penambahan komentar pada kode.
 
 ## ⌚️ Jumlah jam persiapan dan pengerjaan untuk masing-masing anggota
 
@@ -275,3 +315,113 @@ Dengan desain modern, fitur lengkap, dan fokus pada pengalaman pengguna, Purryti
 
 
 ## 🔐 Analisis dan Perbaikan OWASP
+
+### M4: Insufficient Input/Output Validation
+1. Validasi Email pada Login
+
+    **Masalah Sebelum Perubahan:** Kode awal memeriksa apakah email dan password kosong, tetapi tidak melakukan validasi lebih lanjut pada format email. Input email yang tidak valid dapat menyebabkan aplikasi mengirimkan permintaan yang tidak berarti ke server, meningkatkan beban server, atau bahkan memicu potensi celah keamanan lainnya.
+
+    **Pentingnya Perubahan:** Validasi input seperti memastikan format email yang benar dapat mencegah serangan sederhana seperti SQL Injection, Command Injection, atau data yang tidak valid yang dapat digunakan untuk eksploitasi.
+
+    Sebelum:
+    ```kt
+        fun login(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            _loginState.value = LoginState.Error("Email and password cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            _loginState.value = LoginState.Loading
+            val result = userRepository.login(email, password)
+            _loginState.value = when {
+                result.isSuccess -> LoginState.Success
+                else -> LoginState.Error(result.exceptionOrNull()?.message ?: "Login failed")
+            }
+        }
+    }
+    ```
+
+    Sesudah:
+    ```kt
+    fun login(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            _loginState.value = LoginState.Error("Email and password cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            _loginState.value = LoginState.Loading
+            val result = userRepository.login(email, password)
+            _loginState.value = when {
+                result.isSuccess -> LoginState.Success
+                else -> {
+                    val rawMessage = result.exceptionOrNull()?.message
+                    val sanitizedMessage = mapServerErrorToMessage(rawMessage)
+                    LoginState.Error(sanitizedMessage)
+                }
+            }
+        }
+    }
+
+    private fun mapServerErrorToMessage(rawMessage: String?): String {
+        return when {
+            rawMessage?.contains("401", ignoreCase = true) == true -> {
+                "Email or password is incorrect. Please try again."
+            }
+            rawMessage?.contains("500", ignoreCase = true) == true -> {
+                "Server is currently unavailable. Please try again later."
+            }
+            else -> "An unexpected error occurred. Please check your connection or try again."
+        }
+    }
+    ```
+
+2. Sanitasi Output (Output Validation)
+
+    **Masalah Sebelum Perubahan:** Pesan kesalahan dari server diteruskan langsung ke pengguna tanpa diproses. Ini berisiko membuka informasi internal aplikasi (seperti kode status, pesan error server, atau detail debugging) yang bisa dieksploitasi oleh penyerang untuk mengetahui kelemahan sistem.
+    
+    **Pentingnya Perubahan:** Dengan menambahkan fungsi mapServerErrorToMessage, aplikasi menyembunyikan detail internal sistem dari pengguna. Langkah ini mencegah Information Disclosure, salah satu risiko utama yang diidentifikasi oleh OWASP.
+    
+    Misalnya:
+    - Kode status **401** diubah menjadi pesan yang lebih ramah pengguna tanpa mengungkapkan detail autentikasi yang gagal.
+
+
+### M8: Security Misconfiguration
+
+1. Network Security Configuration
+
+    Masalah Sebelum Perubahan: Tidak memvalidasi server yang digunakan rentan terhadap serangan Man-in-the-Middle (MitM). Menerima semua domain, termasuk yang tidak valid.
+
+    Pentingnya Perubahan: Menggunakan Network Security Configuration melindungi serangan Man-in-the-Middle (MitM). Membatasi akses hanya ke domain `34.101.226.132` dan menolak protokol tidak aman.
+
+    Contoh Implementasi:
+    ```xml
+    <?xml version="1.0" encoding="utf-8"?>
+    <network-security-config>
+        <domain-config cleartextTrafficPermitted="true">
+            <domain includeSubdomains="true">34.101.226.132</domain>
+        </domain-config>
+    </network-security-config>
+    ```
+2. Membatasi Izin (Permissions)
+
+    Sejak awal pengembangan, aplikasi telah dirancang dengan menerapkan prinsip Least Privilege, memastikan hanya izin yang relevan dimasukkan dalam AndroidManifest.xml, seperti izin akses internet yang diperlukan untuk fungsi aplikasi.
+
+    Contoh Implementasi:
+    ```xml
+      <!-- Required permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" android:minSdkVersion="33" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" android:minSdkVersion="33" />
+    ```
+
+### M9: Insecure Data Storage
+
+SharedPreferences pada Android adalah penyimpanan bawaan yang aman untuk menyimpan data ringan seperti pengaturan pengguna atau token. Dalam konteks **OWASP M9: Insecure Data Storage**, SharedPreferences direkomendasikan karena data disimpan secara terintegrasi dalam sistem Android, dengan mekanisme bawaan seperti file permissions yang hanya dapat diakses oleh aplikasi itu sendiri (sandboxing).
+
+Menggunakan **encryption.utils** memang menambahkan lapisan keamanan melalui enkripsi, tetapi data yang dienkripsi tidak persisten dan dapat hilang setelah aplikasi direstart. Oleh karena itu, SharedPreferences tetap menjadi pilihan terbaik untuk menyimpan data yang perlu bertahan lama dengan keamanan memadai, asalkan praktik terbaik diterapkan, seperti menggunakan **EncryptedSharedPreferences** untuk enkripsi otomatis dan meminimalkan risiko akses tidak sah. Hal ini memastikan keseimbangan antara keamanan dan kebutuhan aplikasi untuk penyimpanan data jangka panjang.
