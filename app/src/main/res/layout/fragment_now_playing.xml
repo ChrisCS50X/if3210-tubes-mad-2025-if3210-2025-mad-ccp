@@ -104,16 +104,24 @@
         app:layout_constraintTop_toBottomOf="@+id/seekBar"
         tools:text="3:45" />
 
-    <LinearLayout
+    <!-- Replaced LinearLayout with ConstraintLayout for better control positioning -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutControls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
-        android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvCurrentTime"
         app:layout_constraintVertical_bias="0.3">
+
+        <!-- Main playback controls in a horizontal chain -->
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline_center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.5" />
 
         <ImageButton
             android:id="@+id/btnPrevious"
@@ -122,16 +130,22 @@
             android:layout_marginEnd="16dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_previous"
-            app:tint="@color/white" />
+            app:tint="@color/white"
+            app:layout_constraintBottom_toBottomOf="@id/btnPlayPause"
+            app:layout_constraintEnd_toStartOf="@id/btnPlayPause"
+            app:layout_constraintTop_toTopOf="@id/btnPlayPause" />
 
         <ImageButton
             android:id="@+id/btnPlayPause"
             android:layout_width="72dp"
             android:layout_height="72dp"
             android:background="@drawable/rounded_white_background"
-            android:src="@android:drawable/ic_media_pause"
             android:padding="16dp"
-            app:tint="#000000" />
+            android:src="@android:drawable/ic_media_pause"
+            app:tint="#000000"
+            app:layout_constraintEnd_toEndOf="@id/guideline_center"
+            app:layout_constraintStart_toStartOf="@id/guideline_center"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <ImageButton
             android:id="@+id/btnNext"
@@ -140,17 +154,24 @@
             android:layout_marginStart="16dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_next"
-            app:tint="@color/white" />
+            app:tint="@color/white"
+            app:layout_constraintBottom_toBottomOf="@id/btnPlayPause"
+            app:layout_constraintStart_toEndOf="@id/btnPlayPause"
+            app:layout_constraintTop_toTopOf="@id/btnPlayPause" />
 
+        <!-- Queue button positioned separately -->
         <ImageButton
             android:id="@+id/btn_queue"
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:layout_marginStart="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="20dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="12dp"
             android:src="@drawable/ic_queue_music"
-            app:tint="@color/white" />
-    </LinearLayout>
+            app:tint="@color/white"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/btnPlayPause" />
 
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
