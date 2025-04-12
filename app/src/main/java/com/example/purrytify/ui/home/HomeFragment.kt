@@ -48,6 +48,7 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupViewModel()
+        setupEmptyStateButtons()
         observeViewModel()
         homeViewModel.loadHomeData()
     }
@@ -60,12 +61,19 @@ class HomeFragment : Fragment() {
         homeViewModel = ViewModelProvider(this, viewModelFactory)[HomeViewModel::class.java]
     }
 
+    private fun setupEmptyStateButtons() {
+        binding.btnBrowseMusic.setOnClickListener {
+            // Navigate to Library tab
+            findNavController().navigate(R.id.navigation_library)
+        }
+    }
+
     private fun observeViewModel() {
-        // Observe home data
+        // Observe new songs data
         homeViewModel.newSongs.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvNewSongs.visibility = View.VISIBLE
-                binding.tvNewSongsEmpty.visibility = View.GONE
+                binding.layoutNewSongsEmpty.visibility = View.GONE
 
                 binding.rvNewSongs.apply {
                     layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
@@ -75,14 +83,15 @@ class HomeFragment : Fragment() {
                 }
             } else {
                 binding.rvNewSongs.visibility = View.GONE
-                binding.tvNewSongsEmpty.visibility = View.VISIBLE
+                binding.layoutNewSongsEmpty.visibility = View.VISIBLE
             }
         }
 
+        // Observe recently played songs
         homeViewModel.recentlyPlayed.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvRecentlyPlayed.visibility = View.VISIBLE
-                binding.tvRecentlyPlayedEmpty.visibility = View.GONE
+                binding.layoutRecentlyPlayedEmpty.visibility = View.GONE
 
                 binding.rvRecentlyPlayed.apply {
                     layoutManager = LinearLayoutManager(context)
@@ -92,12 +101,8 @@ class HomeFragment : Fragment() {
                 }
             } else {
                 binding.rvRecentlyPlayed.visibility = View.GONE
-                binding.tvRecentlyPlayedEmpty.visibility = View.VISIBLE
+                binding.layoutRecentlyPlayedEmpty.visibility = View.VISIBLE
             }
-        }
-
-        homeViewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
-            binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
     }
 

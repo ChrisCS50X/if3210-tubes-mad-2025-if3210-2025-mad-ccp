@@ -1,4 +1,4 @@
-package com.example.purrytify.util
+package com.example.purrytify.utils
 
 import com.example.purrytify.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
