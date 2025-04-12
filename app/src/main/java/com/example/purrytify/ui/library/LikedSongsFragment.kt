@@ -25,6 +25,8 @@ class LikedSongsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var songAdapter: SongAdapter
+    private var currentSearchQuery: String = ""
+    private var originalSongs: List<Song> = emptyList()
 
     // Library ViewModel for data loading
     private val viewModel: LibraryViewModel by viewModels {
@@ -106,15 +108,46 @@ class LikedSongsFragment : Fragment() {
     private fun observeViewModel() {
         viewModel.likedSongs.observe(viewLifecycleOwner) { songs ->
             binding.progressBar.visibility = View.GONE
+            originalSongs = songs
 
-            if (songs.isEmpty()) {
-                binding.textNoLikedSongs.visibility = View.VISIBLE
-                binding.recyclerViewLikedSongs.visibility = View.GONE
+            if (currentSearchQuery.isEmpty()) {
+                updateSongsList(songs)
             } else {
-                binding.textNoLikedSongs.visibility = View.GONE
-                binding.recyclerViewLikedSongs.visibility = View.VISIBLE
-                songAdapter.setSongs(songs)
+                // Re-apply the search filter with the new data
+                filterSongs(currentSearchQuery)
             }
+        }
+    }
+
+    fun updateSearch(query: String) {
+        currentSearchQuery = query
+        if (::songAdapter.isInitialized) {
+            filterSongs(query)
+        }
+    }
+
+    private fun filterSongs(query: String) {
+        if (query.isEmpty()) {
+            updateSongsList(originalSongs)
+            return
+        }
+
+        val filteredList = originalSongs.filter { song ->
+            song.title.contains(query, ignoreCase = true) ||
+            song.artist.contains(query, ignoreCase = true)
+        }
+
+        updateSongsList(filteredList)
+    }
+
+    private fun updateSongsList(songs: List<Song>) {
+        if (songs.isEmpty()) {
+            binding.textNoLikedSongs.visibility = View.VISIBLE
+            binding.recyclerViewLikedSongs.visibility = View.GONE
+        } else {
+            binding.textNoLikedSongs.visibility = View.GONE
+            binding.recyclerViewLikedSongs.visibility = View.VISIBLE
+            songAdapter.setSongs(songs)
         }
     }
 

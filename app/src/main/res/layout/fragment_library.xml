@@ -35,11 +35,28 @@
         app:layout_constraintBottom_toBottomOf="@id/text_library_header"
         android:contentDescription="Add a new song" />
 
+    <EditText
+        android:id="@+id/etSearch"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:hint="Cari lagu atau artis..."
+        android:drawableStart="@android:drawable/ic_menu_search"
+        android:background="@drawable/bg_search"
+        android:padding="10dp"
+        android:textColor="@android:color/white"
+        android:textColorHint="@android:color/darker_gray"
+        app:layout_constraintTop_toBottomOf="@id/text_library_header"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tab_layout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
+        android:layout_marginStart="16dp"
         android:background="@color/black"
         app:tabBackground="@android:color/transparent"
         app:tabIndicator="@null"
@@ -51,7 +68,7 @@
         app:tabGravity="center"
         app:tabContentStart="0dp"
         android:clipChildren="false"
-        app:layout_constraintTop_toBottomOf="@id/text_library_header"
+        app:layout_constraintTop_toBottomOf="@id/etSearch"
         app:layout_constraintStart_toStartOf="parent" />
 
     <View
@@ -71,5 +88,10 @@
         android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@id/tab_separator"
         app:layout_constraintBottom_toBottomOf="parent" />
+
+    <include
+        android:id="@+id/miniPlayer"
+        layout="@layout/mini_player"
+        android:visibility="gone" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -5,7 +5,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupMenu
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -26,13 +25,15 @@ class AllSongsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var songAdapter: SongAdapter
+    private var currentSearchQuery: String = ""
+    private var originalSongs: List<Song> = emptyList()
 
-    // Library ViewModel for data loading
+    // ViewModel untuk memuat data lagu
     private val viewModel: LibraryViewModel by viewModels {
         LibraryViewModelFactory(requireActivity().application, requireContext().applicationContext)
     }
 
-    // Shared music player ViewModel for playback
+    // ViewModel bersama untuk pemutar musik
     private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
         MusicPlayerViewModelFactory(
             requireActivity().application,
@@ -63,21 +64,16 @@ class AllSongsFragment : Fragment() {
         songAdapter = SongAdapter { song, view ->
             showPopupMenu(song, view)
         }
+
         binding.recyclerViewAllSongs.apply {
             adapter = songAdapter
             addItemDecoration(
-                DividerItemDecoration(
-                    requireContext(),
-                    DividerItemDecoration.VERTICAL
-                )
+                DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL)
             )
         }
 
         songAdapter.setOnItemClickListener { song ->
-            // First increment play count using LibraryViewModel
             viewModel.playSong(song)
-
-            // Then play the song using MusicPlayerViewModel
             musicPlayerViewModel.playSong(song)
         }
     }
@@ -104,19 +100,49 @@ class AllSongsFragment : Fragment() {
         popupMenu.show()
     }
 
-
     private fun observeViewModel() {
         viewModel.allSongs.observe(viewLifecycleOwner) { songs ->
             binding.progressBar.visibility = View.GONE
+            originalSongs = songs
 
-            if (songs.isEmpty()) {
-                binding.textNoSongs.visibility = View.VISIBLE
-                binding.recyclerViewAllSongs.visibility = View.GONE
+            if (currentSearchQuery.isEmpty()) {
+                updateSongsList(songs)
             } else {
-                binding.textNoSongs.visibility = View.GONE
-                binding.recyclerViewAllSongs.visibility = View.VISIBLE
-                songAdapter.setSongs(songs)
+                // Re-apply the search filter with the new data
+                filterSongs(currentSearchQuery)
             }
+        }
+    }
+
+    fun updateSearch(query: String) {
+        currentSearchQuery = query
+        if (::songAdapter.isInitialized) {
+            filterSongs(query)
+        }
+    }
+
+    private fun filterSongs(query: String) {
+        if (query.isEmpty()) {
+            updateSongsList(originalSongs)
+            return
+        }
+
+        val filteredList = originalSongs.filter { song ->
+            song.title.contains(query, ignoreCase = true) ||
+            song.artist.contains(query, ignoreCase = true)
+        }
+
+        updateSongsList(filteredList)
+    }
+
+    private fun updateSongsList(songs: List<Song>) {
+        if (songs.isEmpty()) {
+            binding.textNoSongs.visibility = View.VISIBLE
+            binding.recyclerViewAllSongs.visibility = View.GONE
+        } else {
+            binding.textNoSongs.visibility = View.GONE
+            binding.recyclerViewAllSongs.visibility = View.VISIBLE
+            songAdapter.setSongs(songs)
         }
     }
 

@@ -1,6 +1,8 @@
 package com.example.purrytify.ui.library
 
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +18,9 @@ class LibraryFragment : Fragment() {
 
     private var _binding: FragmentLibraryBinding? = null
     private val binding get() = _binding!!
+    private var currentSearchQuery: String = ""
+    private var allSongsFragment: AllSongsFragment? = null
+    private var likedSongsFragment: LikedSongsFragment? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -29,10 +34,29 @@ class LibraryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupViewPager()
+        setupSearchListener()
 
         binding.buttonAddSong.setOnClickListener {
             AddSongDialogFragment().show(childFragmentManager, "add_song_dialog")
         }
+    }
+
+    private fun setupSearchListener() {
+        binding.etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                currentSearchQuery = s.toString().trim()
+                updateSearchResults()
+            }
+        })
+    }
+
+    private fun updateSearchResults() {
+        allSongsFragment?.updateSearch(currentSearchQuery)
+        likedSongsFragment?.updateSearch(currentSearchQuery)
     }
 
     private fun setupViewPager() {
@@ -75,8 +99,22 @@ class LibraryFragment : Fragment() {
 
         override fun createFragment(position: Int): Fragment {
             return when (position) {
-                0 -> AllSongsFragment()
-                1 -> LikedSongsFragment()
+                0 -> {
+                    allSongsFragment = AllSongsFragment().apply { 
+                        if (currentSearchQuery.isNotEmpty()) {
+                            this.updateSearch(currentSearchQuery)
+                        }
+                    }
+                    allSongsFragment!!
+                }
+                1 -> {
+                    likedSongsFragment = LikedSongsFragment().apply {
+                        if (currentSearchQuery.isNotEmpty()) {
+                            this.updateSearch(currentSearchQuery)
+                        }
+                    }
+                    likedSongsFragment!!
+                }
                 else -> throw IllegalArgumentException("Invalid position")
             }
         }
