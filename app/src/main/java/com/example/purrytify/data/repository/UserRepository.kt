@@ -8,7 +8,7 @@ import com.example.purrytify.data.model.RefreshTokenRequest
 import com.example.purrytify.data.model.UserProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.example.purrytify.util.executeWithTokenRefresh
+import com.example.purrytify.utils.executeWithTokenRefresh
 import android.util.Log
 
 /**
