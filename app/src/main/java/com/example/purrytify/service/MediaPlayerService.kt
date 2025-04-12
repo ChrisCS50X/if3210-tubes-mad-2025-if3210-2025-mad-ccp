@@ -25,6 +25,11 @@ import com.example.purrytify.ui.main.MainActivity
 import java.io.IOException
 import android.util.Log
 
+/**
+ * Service untuk pemutaran musik.
+ * Bertugas memutar lagu di background dan menampilkan notifikasi kontrol.
+ * Service ini extend LifecycleService biar bisa pake LiveData.
+ */
 class MediaPlayerService : LifecycleService() {
     private val TAG = "MediaPlayerService"
 
@@ -33,6 +38,7 @@ class MediaPlayerService : LifecycleService() {
     private var audioFocusRequest: AudioFocusRequest? = null
     private var mediaSession: MediaSessionCompat? = null
 
+    // LiveData untuk dipake ViewModel dan UI
     private val _currentSong = MutableLiveData<Song?>()
     val currentSong: LiveData<Song?> = _currentSong
 
@@ -45,15 +51,25 @@ class MediaPlayerService : LifecycleService() {
     private val _duration = MutableLiveData<Int>()
     val duration: LiveData<Int> = _duration
 
+    // Binder untuk komunikasi dengan activity/fragment
     private val binder = LocalBinder()
     private var progressUpdateJob: Runnable? = null
 
+    // Handler untuk update progress di main thread
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    /**
+     * Local binder class buat interaksi service dengan activity.
+     * Ini biar activity bisa manggil method service secara langsung.
+     */
     inner class LocalBinder : Binder() {
         fun getService(): MediaPlayerService = this@MediaPlayerService
     }
 
+    /**
+     * Inisialisasi service waktu pertama dibuat.
+     * Setup audio manager dan media session di sini.
+     */
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "onCreate: Service created")
@@ -62,6 +78,7 @@ class MediaPlayerService : LifecycleService() {
         setupMediaSession()
         checkAudioSettings()
 
+        // Bikin job buat update progress player secara berkala
         progressUpdateJob = Runnable {
             updateProgress()
             progressUpdateJob?.let {
@@ -70,12 +87,20 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Method yang dipanggil pas service di-bind.
+     * Kita return binder yang nanti dipake activity.
+     */
     override fun onBind(intent: Intent): IBinder {
         Log.d(TAG, "onBind: Service bound")
         super.onBind(intent)
         return binder
     }
 
+    /**
+     * Setup media session buat integrasi dengan sistem Android.
+     * Penting buat kontrol dari notifikasi dan headset.
+     */
     private fun setupMediaSession() {
         Log.d(TAG, "setupMediaSession: Setting up media session")
         mediaSession = MediaSessionCompat(this, "PurrytifyMediaSession").apply {
@@ -106,6 +131,9 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Ngecek dan mastiin volume suara ga nol.
+     */
     private fun checkAudioSettings() {
         val currentVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0
         val maxVolume = audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15
@@ -122,19 +150,23 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Method utama buat mulai memutar lagu baru.
+     * Reset player lama (kalo ada) dan bikin player baru.
+     */
     fun playSong(song: Song) {
         try {
             Log.d(TAG, "playSong: Attempting to play: ${song.title}")
             Log.d(TAG, "playSong: File path: ${song.filePath}")
 
-            // Release any existing MediaPlayer
+            // Release player yang udah ada dulu
             mediaPlayer?.let {
                 Log.d(TAG, "playSong: Releasing existing MediaPlayer")
                 it.stop()
                 it.release()
             }
 
-            // Create and prepare a new MediaPlayer
+            // Bikin dan prepare MediaPlayer baru
             Log.d(TAG, "playSong: Creating new MediaPlayer instance")
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
@@ -163,7 +195,7 @@ class MediaPlayerService : LifecycleService() {
                 }
 
                 try {
-                    // Process the URI based on its format
+                    // Proses URI berdasarkan format path-nya
                     val uri = if (song.filePath.startsWith("content://") ||
                         song.filePath.startsWith("android.resource://") ||
                         song.filePath.startsWith("file://")) {
@@ -201,6 +233,10 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Mulai/lanjutin pemutaran lagu.
+     * Mastiin kita dapet audio focus dulu baru play.
+     */
     fun play() {
         Log.d(TAG, "play: Method called, current player state: ${mediaPlayer?.isPlaying}")
 
@@ -209,6 +245,7 @@ class MediaPlayerService : LifecycleService() {
             return
         }
 
+        // Coba minta audio focus beberapa kali kalo gagal
         var focusGranted = false
         var attempts = 0
         while (!focusGranted && attempts < 3) {
@@ -236,7 +273,7 @@ class MediaPlayerService : LifecycleService() {
             } catch (e: IllegalStateException) {
                 Log.e(TAG, "play: IllegalStateException", e)
 
-                // Try to recover
+                // Coba recovery kalo error
                 _currentSong.value?.let { song ->
                     Log.d(TAG, "play: Attempting to recover")
                     prepareMediaPlayer(song)
@@ -247,7 +284,10 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
-
+    /**
+     * Prepare ulang MediaPlayer kalo error.
+     * Ini cuma prepare aja, ga langsung play.
+     */
     private fun prepareMediaPlayer(song: Song) {
         try {
             mediaPlayer?.release()
@@ -263,7 +303,7 @@ class MediaPlayerService : LifecycleService() {
                 setDataSource(applicationContext, uri)
                 prepare()
 
-                // Don't automatically start playing since this is just preparation
+                // Jangan auto-play, ini cuma persiapan aja
                 _duration.postValue(duration)
             }
         } catch (e: Exception) {
@@ -271,6 +311,9 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Pause pemutaran lagu.
+     */
     fun pause() {
         Log.d(TAG, "pause: Pausing playback")
         try {
@@ -287,11 +330,15 @@ class MediaPlayerService : LifecycleService() {
             updateNotification()
         } catch (e: IllegalStateException) {
             Log.e(TAG, "pause: IllegalStateException", e)
-            // Reset the player if in an invalid state
+            // Reset player kalo di state yang invalid
             _currentSong.value?.let { prepareMediaPlayer(it) }
         }
     }
 
+    /**
+     * Loncat ke posisi tertentu dalam lagu.
+     * Dipanggil waktu user ngegeser progress bar lagu.
+     */
     fun seekTo(position: Int) {
         Log.d(TAG, "seekTo: Seeking to $position ms")
         mediaPlayer?.let { player ->
@@ -306,6 +353,9 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Ambil posisi current pemutaran dalam millisecond.
+     */
     fun getCurrentPosition(): Int {
         return try {
             val position = mediaPlayer?.currentPosition ?: 0
@@ -317,6 +367,9 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Ambil durasi total lagu dalam millisecond.
+     */
     fun getDuration(): Int {
         return try {
             val duration = mediaPlayer?.duration ?: 0
@@ -328,6 +381,10 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Minta permission audio focus ke sistem.
+     * Ini penting biar ga tabrakan sama app lain yang muter audio.
+     */
     private fun requestAudioFocus(): Boolean {
         Log.d(TAG, "requestAudioFocus: Starting focus request")
 
@@ -355,7 +412,7 @@ class MediaPlayerService : LifecycleService() {
             audioManager?.requestAudioFocus(
                 { focusChange ->
                     Log.d(TAG, "Audio focus changed (legacy): $focusChange")
-                    // Add a small delay for focus loss
+                    // Kasih delay dikit buat focus loss
                     if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
                         mainHandler.postDelayed({
                             handleAudioFocusChange(focusChange)
@@ -373,6 +430,10 @@ class MediaPlayerService : LifecycleService() {
         return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
+    /**
+     * Handle perubahan audio focus dari sistem.
+     * Misal kalo ada telepon masuk atau app lain minta focus.
+     */
     private fun handleAudioFocusChange(focusChange: Int) {
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
@@ -385,13 +446,13 @@ class MediaPlayerService : LifecycleService() {
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 Log.d(TAG, "handleAudioFocusChange: AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK")
-                // Don't pause, just lower volume
+                // Ga pause, cuma kecilin volume
                 mediaPlayer?.setVolume(0.3f, 0.3f)
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 Log.d(TAG, "handleAudioFocusChange: AUDIOFOCUS_GAIN")
                 mediaPlayer?.setVolume(1.0f, 1.0f)
-                // Only auto-play if we were previously playing
+                // Auto-play lagi cuma kalo sebelumnya emang lagi play
                 if (_isPlaying.value == true) {
                     play()
                 }
@@ -399,8 +460,11 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Lepasin audio focus kalo udah selesai.
+     */
     private fun abandonAudioFocus() {
-        // Only abandon if we actually have a request
+        // Lepasin cuma kalo kita emang punya request
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (audioFocusRequest != null) {
                 Log.d(TAG, "abandonAudioFocus: Abandoning audio focus")
@@ -412,16 +476,25 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Mulai update progress secara berkala.
+     */
     private fun startProgressUpdates() {
         Log.d(TAG, "startProgressUpdates: Starting progress updates")
         progressUpdateJob?.let { mainHandler.post(it) }
     }
 
+    /**
+     * Berhenti update progress.
+     */
     private fun stopProgressUpdates() {
         Log.d(TAG, "stopProgressUpdates: Stopping progress updates")
         progressUpdateJob?.let { mainHandler.removeCallbacks(it) }
     }
 
+    /**
+     * Update progress player dan kirim ke LiveData.
+     */
     private fun updateProgress() {
         mediaPlayer?.let {
             try {
@@ -433,9 +506,13 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Bikin notifikasi player yang tampil saat musik diputar.
+     * Termasuk tombol play/pause dan info lagu.
+     */
     private fun createNotification(song: Song): Notification {
         Log.d(TAG, "createNotification: Creating notification for ${song.title}")
-        // Only create channel on Android O and above
+        // Bikin channel cuma di Android O ke atas
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
@@ -448,14 +525,14 @@ class MediaPlayerService : LifecycleService() {
             Log.d(TAG, "createNotification: Notification channel created")
         }
 
-        // Create intent for when notification is clicked
+        // Bikin intent buat pas notifikasi diklik
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Build the notification
+        // Bikin notifikasi
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_music_note)
             .setContentTitle(song.title)
@@ -464,7 +541,7 @@ class MediaPlayerService : LifecycleService() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-        // Add play/pause action
+        // Tambahin action play/pause
         val isCurrentlyPlaying = mediaPlayer?.isPlaying ?: false
         Log.d(TAG, "createNotification: Current playback state: isPlaying=$isCurrentlyPlaying")
 
@@ -487,6 +564,10 @@ class MediaPlayerService : LifecycleService() {
         return builder.build()
     }
 
+    /**
+     * Update notifikasi player.
+     * Dipanggil saat status play/pause berubah.
+     */
     private fun updateNotification() {
         Log.d(TAG, "updateNotification: Updating notification")
         _currentSong.value?.let { song ->
@@ -498,6 +579,9 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    /**
+     * Bikin PendingIntent buat action di notifikasi.
+     */
     private fun createActionIntent(action: String): PendingIntent {
         Log.d(TAG, "createActionIntent: Creating action intent for $action")
         val intent = Intent(this, MediaPlayerService::class.java).apply {
@@ -509,6 +593,9 @@ class MediaPlayerService : LifecycleService() {
         )
     }
 
+    /**
+     * Handle intent dari notifikasi player.
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand: Action=${intent?.action}")
         intent?.action?.let { action ->
@@ -526,16 +613,19 @@ class MediaPlayerService : LifecycleService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
+    /**
+     * Bersihkan semua resource waktu service dihancurkan.
+     */
     override fun onDestroy() {
         Log.d(TAG, "onDestroy: Service being destroyed")
         stopProgressUpdates()
 
-        // If we're playing, update isPlaying state first so observers get notified
+        // Kalo lagi play, update state dulu biar observer dapet notif
         if (mediaPlayer?.isPlaying == true) {
             _isPlaying.postValue(false)
         }
 
-        // Release media player
+        // Bebasin MediaPlayer
         mediaPlayer?.let {
             try {
                 if (it.isPlaying) it.stop()
@@ -547,7 +637,7 @@ class MediaPlayerService : LifecycleService() {
         }
         mediaPlayer = null
 
-        // Clean up other resources
+        // Bersihkan resource lainnya
         mediaSession?.release()
         abandonAudioFocus()
         Log.d(TAG, "onDestroy: Cleanup complete")

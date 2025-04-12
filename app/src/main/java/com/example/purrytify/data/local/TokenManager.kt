@@ -3,7 +3,6 @@ package com.example.purrytify.data.local
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.example.purrytify.util.EncryptionUtils
 
 /**
  * Class untuk nyimpen dan ngambil token secara aman.
@@ -27,16 +26,14 @@ class TokenManager(context: Context) {
      * Simpen email user yang login (Enkripsi)
      */
     fun saveEmail(email: String) {
-        val encryptedEmail = EncryptionUtils.encrypt(email)
-        sharedPreferences.edit().putString(KEY_EMAIL, encryptedEmail).apply()
+        sharedPreferences.edit().putString(KEY_EMAIL, email).apply()
     }
 
     /**
      * Ambil email user yang login (Dekripsi)
      */
     fun getEmail(): String? {
-        val encryptedEmail = sharedPreferences.getString(KEY_EMAIL, null)
-        return encryptedEmail?.let { EncryptionUtils.decrypt(it) }
+        return sharedPreferences.getString(KEY_EMAIL, null)
     }
 
     /**
