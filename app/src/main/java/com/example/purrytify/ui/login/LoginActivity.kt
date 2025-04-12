@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
-
     private lateinit var binding: ActivityLoginBinding
     private lateinit var viewModel: LoginViewModel
     private lateinit var viewModelFactory: LoginViewModelFactory
@@ -52,7 +51,7 @@ class LoginActivity : AppCompatActivity() {
         viewModel = ViewModelProvider(this, viewModelFactory)[LoginViewModel::class.java]
         networkViewModel = ViewModelProvider(this)[NetworkViewModel::class.java]
 
-        // Check if already logged in
+        // Cek apakah user sudah login sebelumnya
         if (tokenManager.isLoggedIn()) {
             navigateToMain()
         }
@@ -109,7 +108,7 @@ class LoginActivity : AppCompatActivity() {
                             val snackbarView = snackbar!!.view
                             val params = snackbarView.layoutParams as FrameLayout.LayoutParams
                             params.gravity = Gravity.TOP // Set posisi ke atas
-                            params.topMargin = 16 // Tambahkan margin atas jika diperlukan
+                            params.topMargin = 16
                             snackbarView.layoutParams = params
                             snackbar!!.show()
                         }
@@ -127,6 +126,6 @@ class LoginActivity : AppCompatActivity() {
     private fun navigateToMain() {
         val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
-        finish() // Close LoginActivity
+        finish() // Tutup activity login
     }
 }

@@ -39,9 +39,6 @@ class ProfileFragment : Fragment() {
     private lateinit var viewModel: ProfileViewModel
     private val networkViewModel: NetworkViewModel by activityViewModels()
 
-//    private val repository = SongRepository(AppDatabase.getInstance(requireContext()).songDao(), requireContext().applicationContext)
-//    private val tokenManager = TokenManager(requireContext().applicationContext)
-
     private var snackbar: Snackbar? = null
 
     override fun onCreateView(
@@ -75,7 +72,7 @@ class ProfileFragment : Fragment() {
         viewModel.profileState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is ProfileState.Loading -> {
-                    // Optional: tampilkan loading indicator
+                    // Belum ada implementasi untuk saat milestone ini
                 }
                 is ProfileState.Success -> {
                     val user = state.profile
@@ -116,7 +113,7 @@ class ProfileFragment : Fragment() {
                             val snackbarView = snackbar!!.view
                             val params = snackbarView.layoutParams as FrameLayout.LayoutParams
                             params.gravity = Gravity.TOP // Set posisi ke atas
-                            params.topMargin = 16 // Tambahkan margin atas jika diperlukan
+                            params.topMargin = 16
                             snackbarView.layoutParams = params
                             snackbar!!.show()
                         }
@@ -134,7 +131,6 @@ class ProfileFragment : Fragment() {
 
     private fun setupLogoutButton() {
         binding.btnLogout.setOnClickListener {
-            // Show confirmation dialog
             showLogoutConfirmationDialog()
         }
     }
@@ -155,7 +151,7 @@ class ProfileFragment : Fragment() {
     private fun observeLogoutEvent() {
         viewModel.logoutEvent.observe(viewLifecycleOwner) { shouldLogout ->
             if (shouldLogout) {
-                // Navigate to login screen
+                // Pindah ke halaman login
                 navigateToLogin()
             }
         }
@@ -170,8 +166,8 @@ class ProfileFragment : Fragment() {
 
 
     override fun onDestroyView() {
-        snackbar?.dismiss() // Pastikan Snackbar dihapus
-        snackbar = null // Hindari referensi yang tidak diperlukan
+        snackbar?.dismiss() // Memastikan snackbar terhapus
+        snackbar = null // Menghindari memory leak
         super.onDestroyView()
         _binding = null
     }
