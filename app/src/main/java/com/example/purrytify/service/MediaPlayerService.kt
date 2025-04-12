@@ -619,6 +619,19 @@ class MediaPlayerService : LifecycleService() {
         )
     }
 
+    fun stopPlayback() {
+        if (mediaPlayer?.isPlaying == true) {
+            mediaPlayer?.stop()
+        }
+        mediaPlayer?.reset()
+
+        // Update LiveData
+        _isPlaying.postValue(false)
+        _progress.postValue(0)
+
+        stopProgressUpdates()
+    }
+
     /**
      * Handle intent dari notifikasi player.
      */

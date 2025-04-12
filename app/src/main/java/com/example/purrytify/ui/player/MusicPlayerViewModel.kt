@@ -143,6 +143,37 @@ class MusicPlayerViewModel(
         mediaPlayerService?.playSong(song)
     }
 
+    fun handleSongDeleted(songId: Long) {
+        // Check if the deleted song is the current song
+        if (currentSong.value?.id == songId) {
+            // Stop playback
+            stopPlayback()
+
+            // Clear current song
+            _currentSong.postValue(null)
+
+            // Reset player state
+            _isPlaying.postValue(false)
+            _progress.postValue(0)
+            _duration.postValue(100)
+
+            // Also remove this song from queue if it's there
+            _queue.removeIf { it.id == songId }
+            _originalQueue.removeIf { it.id == songId }
+            _queueLiveData.postValue(_queue.toList())
+        } else {
+            // If it's not the current song, just remove from queue if present
+            _queue.removeIf { it.id == songId }
+            _originalQueue.removeIf { it.id == songId }
+            _queueLiveData.postValue(_queue.toList())
+        }
+    }
+
+    private fun stopPlayback() {
+        // Instead of directly accessing mediaPlayer, use the service
+        mediaPlayerService?.stopPlayback()
+    }
+
     fun togglePlayPause() {
         Log.d("MusicPlayerViewModel", "togglePlayPause called, current state: ${mediaPlayerService?.isPlaying?.value}")
         mediaPlayerService?.let {

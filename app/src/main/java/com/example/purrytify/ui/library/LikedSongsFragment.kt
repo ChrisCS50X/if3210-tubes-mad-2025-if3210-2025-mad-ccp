@@ -72,6 +72,10 @@ class LikedSongsFragment : Fragment() {
                 // Implementasi edit di sini
             },
             onDeleteListener = { song ->
+                // Notify the player view model before deleting the song
+                musicPlayerViewModel.handleSongDeleted(song.id)
+
+                // Then delete from database
                 viewModel.deleteSongById(song.id)
             }
         )

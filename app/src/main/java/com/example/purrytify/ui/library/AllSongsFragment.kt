@@ -73,6 +73,10 @@ class AllSongsFragment : Fragment() {
                 editDialog.show(parentFragmentManager, "EditSongDialog")
             },
             onDeleteListener = { song ->
+                // Notify the player view model before deleting the song
+                musicPlayerViewModel.handleSongDeleted(song.id)
+
+                // Then delete from database
                 viewModel.deleteSongById(song.id)
             }
         )

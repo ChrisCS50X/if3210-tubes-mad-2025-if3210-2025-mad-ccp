@@ -263,8 +263,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.miniPlayer.root.setOnClickListener {
-            musicPlayerViewModel.currentSong.value?.let { song ->
-                navigateToNowPlaying(song)
+            val currentSong = musicPlayerViewModel.currentSong.value
+            if (currentSong != null) {
+                navigateToNowPlaying(currentSong)
+            } else {
+                // Hide the mini player if there's no song
+                binding.miniPlayerContainer.visibility = View.GONE
+                Toast.makeText(this, "This song is no longer available", Toast.LENGTH_SHORT).show()
             }
         }
 
