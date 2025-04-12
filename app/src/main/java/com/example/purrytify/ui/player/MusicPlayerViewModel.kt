@@ -18,6 +18,15 @@ import android.util.Log
 import java.util.LinkedList
 import kotlin.random.Random
 
+/**
+ * Enum class to represent different repeat modes
+ */
+enum class RepeatMode {
+    OFF,      // No repeat
+    ALL,      // Repeat all songs
+    ONE       // Repeat current song
+}
+
 class MusicPlayerViewModel(
     application: Application,
     private val songRepository: SongRepository
@@ -47,6 +56,10 @@ class MusicPlayerViewModel(
     // Shuffle state
     private val _isShuffleEnabled = MutableLiveData<Boolean>(false)
     val isShuffleEnabled: LiveData<Boolean> = _isShuffleEnabled
+    
+    // Repeat mode - starts with OFF
+    private val _repeatMode = MutableLiveData<RepeatMode>(RepeatMode.OFF)
+    val repeatMode: LiveData<RepeatMode> = _repeatMode
 
     // Queue untuk menyimpan lagu-lagu yang antri
     private val _queue = LinkedList<Song>()
@@ -179,6 +192,17 @@ class MusicPlayerViewModel(
         Log.d("MusicPlayerViewModel", "Shuffle is now ${if (_isShuffleEnabled.value == true) "enabled" else "disabled"}")
     }
 
+    fun toggleRepeatMode() {
+        val currentMode = _repeatMode.value ?: RepeatMode.OFF
+        val newMode = when (currentMode) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+        _repeatMode.value = newMode
+        Log.d("MusicPlayerViewModel", "Repeat mode changed to $newMode")
+    }
+
     fun seekTo(position: Int) {
         mediaPlayerService?.seekTo(position)
     }
@@ -222,6 +246,14 @@ class MusicPlayerViewModel(
 
     fun playNext() {
         viewModelScope.launch {
+            // Handle repeat mode first - if in repeat one mode, just replay the current song
+            if (_repeatMode.value == RepeatMode.ONE) {
+                currentSong.value?.let { 
+                    playSong(it) 
+                    return@launch
+                }
+            }
+            
             if (_queue.isNotEmpty()) {
                 // Ambil lagu pertama dari queue & hapus dari antrian
                 val nextSong = _queue.removeFirst()
@@ -263,11 +295,27 @@ class MusicPlayerViewModel(
                     }
                 }
             }
+
+            // Handle repeat all mode - restore queue if it's empty and we're in repeat all
+            if (_repeatMode.value == RepeatMode.ALL && _queue.isEmpty()) {
+                if (_originalQueue.isNotEmpty()) {
+                    _queue.addAll(_originalQueue)
+                    _queueLiveData.postValue(_queue.toList())
+                }
+            }
         }
     }
 
     fun playPrevious() {
         viewModelScope.launch {
+            // Jika dalam mode repeat one, putar lagi lagu yang sama
+            if (_repeatMode.value == RepeatMode.ONE) {
+                currentSong.value?.let { 
+                    playSong(it) 
+                    return@launch
+                }
+            }
+            
             currentSong.value?.let { currentSong ->
                 if (_isShuffleEnabled.value == true) {
                     // In shuffle mode, get a random song

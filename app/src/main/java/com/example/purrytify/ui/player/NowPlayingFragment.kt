@@ -55,6 +55,26 @@ class NowPlayingFragment : Fragment() {
             }
         }
     }
+    
+    // BroadcastReceiver untuk mendeteksi permintaan cek repeat mode
+    private val checkRepeatModeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            Log.d("NowPlayingFragment", "Received request to check repeat mode")
+            if (intent?.action == "com.example.purrytify.CHECK_REPEAT_MODE") {
+                try {
+                    // Jika mode repeat ONE aktif, putar ulang lagu yang sedang dimainkan
+                    if (musicPlayerViewModel.repeatMode.value == RepeatMode.ONE) {
+                        Log.d("NowPlayingFragment", "RepeatMode.ONE active, replaying current song")
+                        musicPlayerViewModel.currentSong.value?.let {
+                            musicPlayerViewModel.playSong(it)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("NowPlayingFragment", "Error handling repeat mode", e)
+                }
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -78,10 +98,15 @@ class NowPlayingFragment : Fragment() {
         super.onResume()
         // Register broadcast receiver when fragment is visible
         try {
-            val filter = IntentFilter("com.example.purrytify.PLAY_NEXT")
+            val filterPlayNext = IntentFilter("com.example.purrytify.PLAY_NEXT")
             LocalBroadcastManager.getInstance(requireContext())
-                .registerReceiver(playNextReceiver, filter)
-            Log.d("NowPlayingFragment", "Registered broadcast receiver")
+                .registerReceiver(playNextReceiver, filterPlayNext)
+            Log.d("NowPlayingFragment", "Registered broadcast receiver for PLAY_NEXT")
+
+            val filterCheckRepeatMode = IntentFilter("com.example.purrytify.CHECK_REPEAT_MODE")
+            LocalBroadcastManager.getInstance(requireContext())
+                .registerReceiver(checkRepeatModeReceiver, filterCheckRepeatMode)
+            Log.d("NowPlayingFragment", "Registered broadcast receiver for CHECK_REPEAT_MODE")
         } catch (e: Exception) {
             Log.e("NowPlayingFragment", "Error registering receiver", e)
         }
@@ -93,7 +118,11 @@ class NowPlayingFragment : Fragment() {
         try {
             LocalBroadcastManager.getInstance(requireContext())
                 .unregisterReceiver(playNextReceiver)
-            Log.d("NowPlayingFragment", "Unregistered broadcast receiver")
+            Log.d("NowPlayingFragment", "Unregistered broadcast receiver for PLAY_NEXT")
+
+            LocalBroadcastManager.getInstance(requireContext())
+                .unregisterReceiver(checkRepeatModeReceiver)
+            Log.d("NowPlayingFragment", "Unregistered broadcast receiver for CHECK_REPEAT_MODE")
         } catch (e: Exception) {
             Log.e("NowPlayingFragment", "Error unregistering receiver", e)
         }
@@ -194,6 +223,11 @@ class NowPlayingFragment : Fragment() {
             showQueueBottomSheet()
         }
 
+        // Set up repeat button functionality
+        binding.btnRepeat.setOnClickListener {
+            musicPlayerViewModel.toggleRepeatMode()
+        }
+
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
@@ -237,6 +271,16 @@ class NowPlayingFragment : Fragment() {
                 R.drawable.ic_shuffle
             }
             binding.btnShuffle.setImageResource(shuffleIcon)
+        }
+
+        // Observe repeat mode changes
+        musicPlayerViewModel.repeatMode.observe(viewLifecycleOwner) { repeatMode ->
+            val repeatIcon = when (repeatMode) {
+                RepeatMode.OFF -> R.drawable.ic_repeat
+                RepeatMode.ALL -> R.drawable.ic_repeat_all
+                RepeatMode.ONE -> R.drawable.ic_repeat_one
+            }
+            binding.btnRepeat.setImageResource(repeatIcon)
         }
 
         musicPlayerViewModel.progress.observe(viewLifecycleOwner) { progress ->

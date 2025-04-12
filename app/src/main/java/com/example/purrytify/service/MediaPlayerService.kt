@@ -183,12 +183,17 @@ class MediaPlayerService : LifecycleService() {
 
                 setOnCompletionListener {
                     Log.d(TAG, "MediaPlayer onCompletion: Playback completed")
-                    
+
                     // Use a safer approach - post to main handler instead of broadcasting
                     mainHandler.post {
                         try {
                             // Langsung update status playing
                             _isPlaying.postValue(false)
+                            
+                            // Cek apakah ada listener repeat mode yang aktif
+                            val repeatModeIntent = Intent("com.example.purrytify.CHECK_REPEAT_MODE")
+                            LocalBroadcastManager.getInstance(applicationContext)
+                                .sendBroadcast(repeatModeIntent)
                             
                             // Gunakan LocalBroadcastManager untuk pengiriman broadcast yang lebih aman
                             try {
