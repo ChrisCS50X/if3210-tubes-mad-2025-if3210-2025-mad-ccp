@@ -63,20 +63,16 @@ class LibraryFragment : Fragment() {
         val adapter = LibraryPagerAdapter(this)
         binding.viewPager.adapter = adapter
 
-        // Connect TabLayout with ViewPager2
         TabLayoutMediator(binding.tabLayout, binding.viewPager) { tab, position ->
-            // Get the custom view
             val customView = LayoutInflater.from(requireContext())
                 .inflate(R.layout.custom_tab_item, null) as TextView
 
-            // Set the text
             customView.text = when (position) {
                 0 -> "All"
                 1 -> "Liked"
                 else -> ""
             }
 
-            // Set the view to the tab
             tab.customView = customView
         }.attach()
 

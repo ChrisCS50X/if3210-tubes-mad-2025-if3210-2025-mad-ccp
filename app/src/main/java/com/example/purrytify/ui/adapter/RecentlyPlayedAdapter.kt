@@ -18,17 +18,14 @@ class RecentlyPlayedAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(song: Song) {
-            // Map to the new layout IDs
             binding.textSongTitle.text = song.title
             binding.textArtist.text = song.artist
 
-            // Format and display duration
             val minutes = TimeUnit.MILLISECONDS.toMinutes(song.duration)
             val seconds = TimeUnit.MILLISECONDS.toSeconds(song.duration) -
                     TimeUnit.MINUTES.toSeconds(minutes)
             binding.textDuration.text = String.format("%d:%02d", minutes, seconds)
 
-            // Load cover image
             Glide.with(binding.root)
                 .load(song.coverUrl)
                 .placeholder(R.drawable.placeholder_album)

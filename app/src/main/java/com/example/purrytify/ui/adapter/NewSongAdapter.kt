@@ -22,7 +22,6 @@ class NewSongsAdapter(
                 .load(song.coverUrl)
                 .into(binding.ivCover)
 
-            // Set click listener on the item
             binding.root.setOnClickListener {
                 onSongClick(song)
             }

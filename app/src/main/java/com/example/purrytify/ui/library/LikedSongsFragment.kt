@@ -28,12 +28,10 @@ class LikedSongsFragment : Fragment() {
     private var currentSearchQuery: String = ""
     private var originalSongs: List<Song> = emptyList()
 
-    // Library ViewModel for data loading
     private val viewModel: LibraryViewModel by viewModels {
         LibraryViewModelFactory(requireActivity().application, requireContext().applicationContext)
     }
 
-    // Shared music player ViewModel for playback
     private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
         MusicPlayerViewModelFactory(
             requireActivity().application,
@@ -69,9 +67,10 @@ class LikedSongsFragment : Fragment() {
             },
             onEditListener = { song ->
                 Toast.makeText(requireContext(), "Edit ${song.title}", Toast.LENGTH_SHORT).show()
-                // Implementasi edit di sini
             },
             onDeleteListener = { song ->
+                musicPlayerViewModel.handleSongDeleted(song.id)
+
                 viewModel.deleteSongById(song.id)
             }
         )
@@ -84,10 +83,8 @@ class LikedSongsFragment : Fragment() {
         }
 
         songAdapter.setOnItemClickListener { song ->
-            // First increment play count using LibraryViewModel
             viewModel.playSong(song)
 
-            // Then play the song using MusicPlayerViewModel
             musicPlayerViewModel.playSong(song)
         }
     }
@@ -100,7 +97,6 @@ class LikedSongsFragment : Fragment() {
             when (menuItem.itemId) {
                 R.id.action_edit -> {
                     Toast.makeText(requireContext(), "Edit ${song.title}", Toast.LENGTH_SHORT).show()
-                    // Implementasi edit di sini
                     true
                 }
                 R.id.action_delete -> {
@@ -122,7 +118,6 @@ class LikedSongsFragment : Fragment() {
             if (currentSearchQuery.isEmpty()) {
                 updateSongsList(songs)
             } else {
-                // Re-apply the search filter with the new data
                 filterSongs(currentSearchQuery)
             }
         }

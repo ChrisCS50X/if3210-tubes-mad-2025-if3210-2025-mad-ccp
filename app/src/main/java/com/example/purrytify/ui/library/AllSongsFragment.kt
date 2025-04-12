@@ -29,12 +29,10 @@ class AllSongsFragment : Fragment() {
     private var currentSearchQuery: String = ""
     private var originalSongs: List<Song> = emptyList()
 
-    // ViewModel untuk memuat data lagu
     private val viewModel: LibraryViewModel by viewModels {
         LibraryViewModelFactory(requireActivity().application, requireContext().applicationContext)
     }
 
-    // ViewModel bersama untuk pemutar musik
     private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
         MusicPlayerViewModelFactory(
             requireActivity().application,
@@ -73,6 +71,8 @@ class AllSongsFragment : Fragment() {
                 editDialog.show(parentFragmentManager, "EditSongDialog")
             },
             onDeleteListener = { song ->
+                musicPlayerViewModel.handleSongDeleted(song.id)
+
                 viewModel.deleteSongById(song.id)
             }
         )
@@ -98,7 +98,6 @@ class AllSongsFragment : Fragment() {
             if (currentSearchQuery.isEmpty()) {
                 updateSongsList(songs)
             } else {
-                // Re-apply the search filter with the new data
                 filterSongs(currentSearchQuery)
             }
         }

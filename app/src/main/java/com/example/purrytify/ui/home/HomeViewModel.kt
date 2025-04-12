@@ -29,7 +29,7 @@ class HomeViewModel(private val songRepository: SongRepository, private val cont
                 _newSongs.value = songRepository.getNewSongs(tokenManager.getEmail(),10)
                 _recentlyPlayed.value = songRepository.getRecentlyPlayed(tokenManager.getEmail(),10)
             } catch (e: Exception) {
-                // Handle error, perhaps add an error state
+
             } finally {
                 _isLoading.value = false
             }

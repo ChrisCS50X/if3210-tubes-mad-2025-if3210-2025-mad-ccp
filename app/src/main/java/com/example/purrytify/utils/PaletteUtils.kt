@@ -75,7 +75,7 @@ object PaletteUtils {
                     palette?.darkVibrantSwatch != null -> palette.darkVibrantSwatch!!.rgb
                     palette?.lightVibrantSwatch != null -> palette.lightVibrantSwatch!!.rgb
                     palette?.dominantSwatch != null -> palette.dominantSwatch!!.rgb
-                    else -> Color.BLACK // Fallback color
+                    else -> Color.BLACK
                 }
 
                 val finalColor = adjustColorForBackground(color)

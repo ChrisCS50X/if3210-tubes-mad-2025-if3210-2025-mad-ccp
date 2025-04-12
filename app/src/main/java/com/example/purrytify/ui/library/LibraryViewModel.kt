@@ -37,7 +37,6 @@ class LibraryViewModel(application: Application, context: Context) : AndroidView
     fun playSong(song: Song) {
         viewModelScope.launch {
             repository.incrementPlayCount(song.id)
-            // Handle playback (will be implemented in another part)
         }
     }
 

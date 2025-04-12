@@ -53,10 +53,26 @@
         android:textColor="#FFFFFF"
         android:textSize="20sp"
         android:textStyle="bold"
-        app:layout_constraintEnd_toStartOf="@+id/btnFavorite"
+        app:layout_constraintEnd_toStartOf="@+id/btn_queue"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/ivAlbumCover"
-        tools:text="Song Title" />
+        tools:text="Song Title"
+        android:layout_marginEnd="8dp"/>
+
+
+    <ImageButton
+        android:id="@+id/btn_queue"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="12dp"
+        android:src="@drawable/ic_queue_music"
+        app:tint="@color/white"
+        android:contentDescription="Queue"
+        app:layout_constraintEnd_toStartOf="@+id/btnFavorite"
+        app:layout_constraintTop_toTopOf="@+id/btnFavorite"
+        app:layout_constraintBottom_toBottomOf="@+id/btnFavorite"
+        android:layout_marginEnd="8dp" />
 
     <ImageButton
         android:id="@+id/btnFavorite"
@@ -80,10 +96,11 @@
         android:maxLines="1"
         android:textColor="#AAAAAA"
         android:textSize="16sp"
-        app:layout_constraintEnd_toStartOf="@+id/btnFavorite"
+        app:layout_constraintEnd_toStartOf="@+id/btn_queue"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvSongTitle"
-        tools:text="Artist Name" />
+        tools:text="Artist Name"
+        android:layout_marginEnd="8dp"/>
 
     <SeekBar
         android:id="@+id/seekBar"
@@ -182,15 +199,15 @@
             app:layout_constraintTop_toTopOf="@id/btnPlayPause" />
 
         <ImageButton
-            android:id="@+id/btn_queue"
+            android:id="@+id/btn_repeat"
             android:layout_width="56dp"
             android:layout_height="56dp"
             android:layout_marginTop="8dp"
             android:layout_marginEnd="20dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="12dp"
-            android:src="@drawable/ic_queue_music"
-            app:tint="@color/white"
+            android:src="@drawable/ic_repeat"
+            android:contentDescription="Toggle repeat mode"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="@id/btnPlayPause" />
 

@@ -41,8 +41,7 @@ class NowPlayingFragment : Fragment() {
             SongRepository(AppDatabase.getInstance(requireContext()).songDao(), requireContext().applicationContext)
         )
     }
-    
-    // BroadcastReceiver untuk mendeteksi ketika lagu selesai diputar
+
     private val playNextReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             Log.d("NowPlayingFragment", "Received broadcast to play next song")
@@ -51,6 +50,24 @@ class NowPlayingFragment : Fragment() {
                     musicPlayerViewModel.playNext()
                 } catch (e: Exception) {
                     Log.e("NowPlayingFragment", "Error playing next song", e)
+                }
+            }
+        }
+    }
+
+    private val checkRepeatModeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            Log.d("NowPlayingFragment", "Received request to check repeat mode")
+            if (intent?.action == "com.example.purrytify.CHECK_REPEAT_MODE") {
+                try {
+                    if (musicPlayerViewModel.repeatMode.value == RepeatMode.ONE) {
+                        Log.d("NowPlayingFragment", "RepeatMode.ONE active, replaying current song")
+                        musicPlayerViewModel.currentSong.value?.let {
+                            musicPlayerViewModel.playSong(it)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("NowPlayingFragment", "Error handling repeat mode", e)
                 }
             }
         }
@@ -76,12 +93,16 @@ class NowPlayingFragment : Fragment() {
     
     override fun onResume() {
         super.onResume()
-        // Register broadcast receiver when fragment is visible
         try {
-            val filter = IntentFilter("com.example.purrytify.PLAY_NEXT")
+            val filterPlayNext = IntentFilter("com.example.purrytify.PLAY_NEXT")
             LocalBroadcastManager.getInstance(requireContext())
-                .registerReceiver(playNextReceiver, filter)
-            Log.d("NowPlayingFragment", "Registered broadcast receiver")
+                .registerReceiver(playNextReceiver, filterPlayNext)
+            Log.d("NowPlayingFragment", "Registered broadcast receiver for PLAY_NEXT")
+
+            val filterCheckRepeatMode = IntentFilter("com.example.purrytify.CHECK_REPEAT_MODE")
+            LocalBroadcastManager.getInstance(requireContext())
+                .registerReceiver(checkRepeatModeReceiver, filterCheckRepeatMode)
+            Log.d("NowPlayingFragment", "Registered broadcast receiver for CHECK_REPEAT_MODE")
         } catch (e: Exception) {
             Log.e("NowPlayingFragment", "Error registering receiver", e)
         }
@@ -89,11 +110,14 @@ class NowPlayingFragment : Fragment() {
     
     override fun onPause() {
         super.onPause()
-        // Unregister receiver when fragment is not visible
         try {
             LocalBroadcastManager.getInstance(requireContext())
                 .unregisterReceiver(playNextReceiver)
-            Log.d("NowPlayingFragment", "Unregistered broadcast receiver")
+            Log.d("NowPlayingFragment", "Unregistered broadcast receiver for PLAY_NEXT")
+
+            LocalBroadcastManager.getInstance(requireContext())
+                .unregisterReceiver(checkRepeatModeReceiver)
+            Log.d("NowPlayingFragment", "Unregistered broadcast receiver for CHECK_REPEAT_MODE")
         } catch (e: Exception) {
             Log.e("NowPlayingFragment", "Error unregistering receiver", e)
         }
@@ -106,7 +130,6 @@ class NowPlayingFragment : Fragment() {
             findNavController().navigateUp()
         }
 
-        // Set up favorite button functionality
         binding.btnFavorite.setOnClickListener {
             musicPlayerViewModel.currentSong.value?.let { song ->
                 lifecycleScope.launch {
@@ -123,7 +146,6 @@ class NowPlayingFragment : Fragment() {
 
         args.song?.let { song ->
             updateSongInfo(song)
-            // Initialize favorite button state
             lifecycleScope.launch {
                 val isLiked = songRepository.getLikedStatusBySongId(song.id)
                 binding.btnFavorite.setImageResource(
@@ -137,7 +159,6 @@ class NowPlayingFragment : Fragment() {
         binding.tvSongTitle.text = song.title
         binding.tvArtistName.text = song.artist
 
-        // Update favorite button state when song changes
         lifecycleScope.launch {
             val isLiked = songRepository.getLikedStatusBySongId(song.id)
             binding.btnFavorite.setImageResource(
@@ -194,6 +215,10 @@ class NowPlayingFragment : Fragment() {
             showQueueBottomSheet()
         }
 
+        binding.btnRepeat.setOnClickListener {
+            musicPlayerViewModel.toggleRepeatMode()
+        }
+
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
@@ -237,6 +262,15 @@ class NowPlayingFragment : Fragment() {
                 R.drawable.ic_shuffle
             }
             binding.btnShuffle.setImageResource(shuffleIcon)
+        }
+
+        musicPlayerViewModel.repeatMode.observe(viewLifecycleOwner) { repeatMode ->
+            val repeatIcon = when (repeatMode) {
+                RepeatMode.OFF -> R.drawable.ic_repeat
+                RepeatMode.ALL -> R.drawable.ic_repeat_all
+                RepeatMode.ONE -> R.drawable.ic_repeat_one
+            }
+            binding.btnRepeat.setImageResource(repeatIcon)
         }
 
         musicPlayerViewModel.progress.observe(viewLifecycleOwner) { progress ->

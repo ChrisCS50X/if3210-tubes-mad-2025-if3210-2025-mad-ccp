@@ -23,7 +23,7 @@ class QueueAdapter(
     inner class QueueViewHolder(val binding: ItemQueueSongBinding) : RecyclerView.ViewHolder(binding.root) {
         init {
             binding.btnRemove.setOnClickListener {
-                val position = bindingAdapterPosition  // Changed from adapterPosition
+                val position = bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     listener.onRemoveFromQueue(position)
                 }
@@ -46,9 +46,8 @@ class QueueAdapter(
         with(holder.binding) {
             textSongTitle.text = song.title
             textArtist.text = song.artist
-            textPosition.text = (position + 1).toString() // Tampilkan posisi dalam queue
+            textPosition.text = (position + 1).toString()
 
-            // Load cover art jika ada
             if (!song.coverUrl.isNullOrEmpty()) {
                 imageSongCover.load(song.coverUrl) {
                     crossfade(true)
@@ -63,7 +62,6 @@ class QueueAdapter(
 
     override fun getItemCount() = songs.size
 
-    // Add this method to fix the error
     fun updateSongs(newSongs: List<Song>) {
         this.songs = newSongs
         notifyDataSetChanged()

@@ -91,7 +91,6 @@ class SongAdapter(
             binding.textArtist.text = song.artist
             binding.textDuration.text = formatDuration(song.duration)
 
-            // Load image if available
             song.coverUrl?.let { url ->
                 Glide.with(binding.root)
                     .load(url)
@@ -99,7 +98,6 @@ class SongAdapter(
                     .error(R.drawable.placeholder_image)
                     .into(binding.imageSong)
             } ?: run {
-                // Set default image if no cover
                 binding.imageSong.setImageResource(R.drawable.placeholder_image)
             }
         }

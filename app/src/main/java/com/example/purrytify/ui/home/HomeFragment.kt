@@ -27,7 +27,6 @@ class HomeFragment : Fragment() {
 
     private lateinit var homeViewModel: HomeViewModel
 
-    // Shared music player ViewModel
     private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
         MusicPlayerViewModelFactory(
             requireActivity().application,
@@ -63,13 +62,12 @@ class HomeFragment : Fragment() {
 
     private fun setupEmptyStateButtons() {
         binding.btnBrowseMusic.setOnClickListener {
-            // Navigate to Library tab
+            // Pindah ke halaman library
             findNavController().navigate(R.id.navigation_library)
         }
     }
 
     private fun observeViewModel() {
-        // Observe new songs data
         homeViewModel.newSongs.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvNewSongs.visibility = View.VISIBLE
@@ -87,7 +85,6 @@ class HomeFragment : Fragment() {
             }
         }
 
-        // Observe recently played songs
         homeViewModel.recentlyPlayed.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvRecentlyPlayed.visibility = View.VISIBLE
