@@ -41,7 +41,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tokenRefreshManager: TokenRefreshManager
     private lateinit var musicPlayerViewModel: MusicPlayerViewModel
 
-    // BroadcastReceiver untuk mendengarkan event lagu selesai
     private val songCompletionReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
             if (intent?.action == "com.example.purrytify.PLAY_NEXT") {
@@ -56,45 +55,38 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Check token validity before showing any UI
         verifyTokenAndNavigate()
     }
 
     private fun verifyTokenAndNavigate() {
         val tokenManager = TokenManager(this)
 
-        // Debug logging
         val currentToken = tokenManager.getToken()
         Log.d("TokenDebug", "Current stored token: $currentToken")
         val refreshToken = tokenManager.getRefreshToken()
         Log.d("TokenDebug", "Current refresh token: $refreshToken")
 
-        // If no token exists, go to login
         if (!tokenManager.isLoggedIn()) {
             navigateToLogin()
             return
         }
 
-        // Check if token is valid
         lifecycleScope.launch {
             val userRepository = UserRepository(tokenManager)
             val isTokenValid = userRepository.verifyToken()
 
             if (!isTokenValid) {
                 Log.d("TokenDebug", "Token invalid, attempting refresh")
-                // Try to refresh the token
                 val refreshResult = userRepository.refreshToken()
 
                 if (refreshResult.isFailure) {
                     Log.d("TokenDebug", "Token refresh failed, navigating to login")
-                    // Couldn't refresh token, go to login
                     tokenManager.clearTokens()
                     navigateToLogin()
                     return@launch
                 }
             }
 
-            // Token is valid or was refreshed successfully
             Log.d("TokenDebug", "Token valid or refreshed, continuing to main app")
             continueToMainApp()
         }
@@ -129,50 +121,40 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
-        // Track whether we're currently in the NowPlayingFragment
         var isInNowPlayingFragment = false
 
-        // Replace standard setup with custom listener
         binding.bottomNavigation.setOnItemSelectedListener { item ->
-            // Check if we're on the Now Playing fragment
             val currentFragment = navHostFragment.childFragmentManager.fragments.firstOrNull()
             val isOnNowPlaying = currentFragment is NowPlayingFragment
 
             if (isOnNowPlaying) {
-                // Clear the back stack when navigating away from Now Playing via bottom nav
                 navController.popBackStack(navController.graph.startDestinationId, false)
             }
 
-            // Navigate to the selected destination
             when (item.itemId) {
                 R.id.navigation_home -> navController.navigate(R.id.navigation_home)
                 R.id.navigation_library -> navController.navigate(R.id.navigation_library)
                 R.id.navigation_profile -> navController.navigate(R.id.navigation_profile)
             }
 
-            true  // Return true to select the item
+            true
         }
 
-        // Keep the destination change listener for mini player visibility
         navController.addOnDestinationChangedListener { _, destination, _ ->
             isInNowPlayingFragment = (destination.id == R.id.navigation_now_playing)
             updateMiniPlayerVisibility(isInNowPlayingFragment)
 
-            // Update the bottom navigation selection to match current destination
             if (destination.id != R.id.navigation_now_playing) {
                 binding.bottomNavigation.menu.findItem(destination.id)?.isChecked = true
             }
         }
 
-        // Observe song changes separately from navigation (unchanged)
         musicPlayerViewModel.currentSong.observe(this) { song ->
             if (!isInNowPlayingFragment) {
-                // Only update visibility if we're not in the now playing fragment
                 binding.miniPlayerContainer.visibility =
                     if (song != null) View.VISIBLE else View.GONE
             }
 
-            // Update mini player content regardless of visibility
             song?.let { updateMiniPlayer(it) }
         }
     }
@@ -189,7 +171,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Request granular media permissions
             val permissions = mutableListOf<String>()
 
             if (checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -221,7 +202,6 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == STORAGE_PERMISSION_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted
             } else {
                 Toast.makeText(this, "Storage permission is required to add songs", Toast.LENGTH_LONG).show()
             }
@@ -241,7 +221,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupMusicPlayer() {
-        // Get the ViewModel
         val database = AppDatabase.getInstance(this)
         val repository = SongRepository(database.songDao(), applicationContext)
         val factory = MusicPlayerViewModelFactory(application, repository)
@@ -256,7 +235,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Set up mini player controls
         binding.miniPlayer.btnMiniPlayPause.setOnClickListener {
             Log.d("MainActivity", "Play/Pause button clicked, current state: ${musicPlayerViewModel.isPlaying.value}")
             musicPlayerViewModel.togglePlayPause()
@@ -267,7 +245,6 @@ class MainActivity : AppCompatActivity() {
             if (currentSong != null) {
                 navigateToNowPlaying(currentSong)
             } else {
-                // Hide the mini player if there's no song
                 binding.miniPlayerContainer.visibility = View.GONE
                 Toast.makeText(this, "This song is no longer available", Toast.LENGTH_SHORT).show()
             }
@@ -288,17 +265,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Update mini player seek bar with current progress
         musicPlayerViewModel.progress.observe(this) { progress ->
             binding.miniPlayer.miniSeekBar.progress = progress
         }
 
-        // Update seek bar max value when duration changes
         musicPlayerViewModel.duration.observe(this) { duration ->
             binding.miniPlayer.miniSeekBar.max = duration
         }
 
-        // Observe music player
         musicPlayerViewModel.currentSong.observe(this) { song ->
             Log.d("MainActivity", "Current song changed: ${song?.title ?: "null"}")
             song?.let {
@@ -332,14 +306,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Load cover art with Glide
         Glide.with(this)
             .load(song.coverUrl)
             .placeholder(R.drawable.placeholder_album)
             .error(R.drawable.placeholder_album)
             .into(binding.miniPlayer.ivMiniCover)
-            
-        // Use simple color provider instead of complex extraction
+
         val backgroundColor = BackgroundColorProvider.getColorForSong(song)
         BackgroundColorProvider.applyColorSafely(binding.miniPlayer.root, backgroundColor)
     }
@@ -348,20 +320,16 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
-        // Store current tab before navigating
         currentTab = navController.currentDestination?.id ?: R.id.navigation_home
 
-        // Create action with the song data
         val action = NavGraphDirections.actionGlobalNavigationNowPlaying(
             song, musicPlayerViewModel.isPlaying.value ?: false
         )
 
-        // Create navigation options that preserve back stack
         val navOptions = NavOptions.Builder()
             .setLaunchSingleTop(true)
             .build()
 
-        // Navigate with options
         navController.navigate(action.actionId, action.arguments, navOptions)
     }
 
@@ -369,7 +337,6 @@ class MainActivity : AppCompatActivity() {
         val backStack = mutableListOf<String>()
         var backStackIndex = 0
 
-        // Try-catch in case of exceptions with the internal NavController methods
         try {
             while (true) {
                 val entry = navController.getBackStackEntry(backStackIndex)
@@ -377,20 +344,18 @@ class MainActivity : AppCompatActivity() {
                 backStackIndex++
             }
         } catch (e: Exception) {
-            // This is expected when we reach the end of the back stack
+
         }
 
         Log.d("NavigationDebug", "Back stack (${backStack.size}): ${backStack.joinToString(" -> ")}")
     }
 
-    // Add this public method to MainActivity
     fun navigateBackFromNowPlaying() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
         Log.d("Navigation", "Navigating back from Now Playing to tab: $currentTab")
 
-        // Navigate to the saved tab
         when (currentTab) {
             R.id.navigation_home -> navController.navigate(R.id.navigation_home)
             R.id.navigation_library -> navController.navigate(R.id.navigation_library)
@@ -398,13 +363,11 @@ class MainActivity : AppCompatActivity() {
             else -> navController.navigate(R.id.navigation_home)
         }
 
-        // Debug: Print back stack after navigation
         logBackStack(navController)
     }
 
     override fun onResume() {
         super.onResume()
-        // Only register receiver if we have a valid ViewModel
         if (::musicPlayerViewModel.isInitialized) {
             try {
                 val filter = android.content.IntentFilter("com.example.purrytify.PLAY_NEXT")
@@ -418,12 +381,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Hapus pendaftaran receiver saat activity di-pause
+
         try {
             unregisterReceiver(songCompletionReceiver)
             Log.d("MainActivity", "Unregistered song completion broadcast receiver")
         } catch (e: Exception) {
-            // Tangani jika receiver belum terdaftar
             Log.e("MainActivity", "Error unregistering receiver: ${e.message}")
         }
     }

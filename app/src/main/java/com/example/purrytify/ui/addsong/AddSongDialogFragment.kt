@@ -35,7 +35,6 @@ class AddSongDialogFragment : DialogFragment() {
     private var selectedArtworkUri: Uri? = null
     private var songDuration: Long = 0
 
-    // Audio file picker
     private val audioResultLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -48,7 +47,6 @@ class AddSongDialogFragment : DialogFragment() {
         }
     }
 
-    // Image picker for artwork
     private val imageResultLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -79,7 +77,6 @@ class AddSongDialogFragment : DialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Set the dialog to be full width
         dialog?.window?.setLayout(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -89,12 +86,10 @@ class AddSongDialogFragment : DialogFragment() {
     }
 
     private fun setupClickListeners() {
-        // Browse for audio file
         binding.buttonSelectFile.setOnClickListener {
             selectAudioFile()
         }
 
-        // Select artwork
         binding.textSelectArtwork.setOnClickListener {
             selectArtwork()
         }
@@ -103,12 +98,10 @@ class AddSongDialogFragment : DialogFragment() {
             selectArtwork()
         }
 
-        // Cancel button
         binding.buttonCancel.setOnClickListener {
             dismiss()
         }
 
-        // Save button
         binding.buttonSave.setOnClickListener {
             saveSong()
         }
@@ -123,7 +116,6 @@ class AddSongDialogFragment : DialogFragment() {
     }
 
     private fun selectArtwork() {
-        // Use document picker for all Android versions
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "image/*"
@@ -136,18 +128,15 @@ class AddSongDialogFragment : DialogFragment() {
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(requireContext(), uri)
 
-            // Extract duration
             val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
             songDuration = durationStr?.toLong() ?: 0
             binding.textDuration.text = "Duration: ${formatDuration(songDuration)}"
 
-            // Extract title if available
             val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
             if (!title.isNullOrBlank()) {
                 binding.editTitle.setText(title)
             }
 
-            // Extract artist if available
             val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
             if (!artist.isNullOrBlank()) {
                 binding.editArtist.setText(artist)
@@ -164,7 +153,6 @@ class AddSongDialogFragment : DialogFragment() {
         val title = binding.editTitle.text.toString().trim()
         val artist = binding.editArtist.text.toString().trim()
 
-        // Validation
         if (selectedAudioUri == null) {
             Toast.makeText(requireContext(), "Please select an audio file", Toast.LENGTH_SHORT).show()
             return
@@ -185,13 +173,11 @@ class AddSongDialogFragment : DialogFragment() {
         }
 
         try {
-            // Take persistable permission for the file
             requireContext().contentResolver.takePersistableUriPermission(
                 selectedAudioUri!!,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
 
-            // Take persistable permission for artwork if selected
             selectedArtworkUri?.let {
                 try {
                     requireContext().contentResolver.takePersistableUriPermission(
@@ -199,14 +185,12 @@ class AddSongDialogFragment : DialogFragment() {
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
                 } catch (e: SecurityException) {
-                    // Some image providers don't allow taking persistable permissions
                     Log.w("AddSongDialog", "Couldn't take persistable permission for artwork: ${e.message}")
                 }
             }
 
-            // Create and save the song
             val newSong = Song(
-                id = 0, // Room will auto-generate
+                id = 0,
                 title = title,
                 artist = artist,
                 coverUrl = selectedArtworkUri?.toString(),
@@ -219,7 +203,6 @@ class AddSongDialogFragment : DialogFragment() {
             Toast.makeText(requireContext(), "Song added successfully", Toast.LENGTH_SHORT).show()
             dismiss()
         } catch (e: SecurityException) {
-            // Handle permission exception
             Toast.makeText(requireContext(), "Permission error: ${e.message}", Toast.LENGTH_SHORT).show()
             e.printStackTrace()
         } catch (e: Exception) {

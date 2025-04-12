@@ -35,7 +35,6 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
     private var selectedArtworkUri: Uri? = null
     private var songDuration: Long = 0
 
-    // Audio file picker
     private val audioResultLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -47,7 +46,7 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
             }
         }
     }
-    // Image picker for artwork
+
     private val imageResultLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -78,7 +77,6 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Set the dialog to be full width
         dialog?.window?.setLayout(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -89,12 +87,10 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
     }
 
     private fun setupClickListeners() {
-        // Browse for audio file
         binding.buttonSelectFile.setOnClickListener {
             selectAudioFile()
         }
 
-        // Select artwork
         binding.textSelectArtwork.setOnClickListener {
             selectArtwork()
         }
@@ -103,12 +99,10 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
             selectArtwork()
         }
 
-        // Cancel button
         binding.buttonCancel.setOnClickListener {
             dismiss()
         }
 
-        // Save button
         binding.buttonSave.setOnClickListener {
             saveSong()
         }
@@ -135,18 +129,15 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(requireContext(), uri)
 
-            // Extract duration
             val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
             songDuration = durationStr?.toLong() ?: 0
             binding.textDuration.text = "Duration: ${formatDuration(songDuration)}"
 
-            // Extract title if available
             val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
             if (!title.isNullOrBlank()) {
                 binding.editTitle.setText(title)
             }
 
-            // Extract artist if available
             val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
             if (!artist.isNullOrBlank()) {
                 binding.editArtist.setText(artist)
@@ -160,13 +151,11 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
     }
 
     private fun populateSongDetails() {
-        // Populate existing details
         binding.editTitle.setText(song.title)
         binding.editArtist.setText(song.artist)
         binding.textSelectedFile.text = song.filePath
         binding.textDuration.text = "Duration: ${formatDuration(song.duration)}"
 
-        // Load artwork if available
         song.coverUrl?.let {
             Glide.with(requireContext())
                 .load(Uri.parse(it))
@@ -178,7 +167,6 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
         val title = binding.editTitle.text.toString().trim()
         val artist = binding.editArtist.text.toString().trim()
 
-        // Validation
         if (title.isEmpty()) {
             binding.inputLayoutTitle.error = "Title is required"
             return
@@ -194,7 +182,6 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
         }
 
         try {
-            // Take persistable permission for AudioUri if selected
             selectedAudioUri?.let { uri ->
                 requireContext().contentResolver.takePersistableUriPermission(
                     uri,
@@ -202,7 +189,6 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
                 )
             }
 
-            // Take persistable permission for artwork if selected
             selectedArtworkUri?.let { uri ->
                 try {
                     requireContext().contentResolver.takePersistableUriPermission(
@@ -214,10 +200,8 @@ class EditSongDialogFragment(private val song: Song) : DialogFragment() {
                 }
             }
 
-            // Determine file path
             val tempFilePath = selectedAudioUri?.toString() ?: song.filePath
 
-            // Update the song
             val updatedSong = song.copy(
                 title = title,
                 artist = artist,

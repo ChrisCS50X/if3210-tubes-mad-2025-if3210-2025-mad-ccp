@@ -11,10 +11,6 @@ import com.example.purrytify.databinding.FragmentQueueBottomSheetBinding
 import com.example.purrytify.ui.adapter.QueueAdapter
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
-
-/**
- * Fragment buat nampilin dan ngatur antrian lagu
- */
 class QueueBottomSheetFragment : BottomSheetDialogFragment() {
 
     private var _binding: FragmentQueueBottomSheetBinding? = null
@@ -67,7 +63,6 @@ class QueueBottomSheetFragment : BottomSheetDialogFragment() {
         musicPlayerViewModel.queueLiveData.observe(viewLifecycleOwner) { songs ->
             queueAdapter.updateSongs(songs)
 
-            // Tampilkan pesan jika queue kosong
             if (songs.isEmpty()) {
                 binding.textNoSongs.visibility = View.VISIBLE
             } else {
