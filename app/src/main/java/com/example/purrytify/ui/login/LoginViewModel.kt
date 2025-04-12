@@ -22,8 +22,24 @@ class LoginViewModel(private val userRepository: UserRepository) : ViewModel() {
             val result = userRepository.login(email, password)
             _loginState.value = when {
                 result.isSuccess -> LoginState.Success
-                else -> LoginState.Error(result.exceptionOrNull()?.message ?: "Login failed")
+                else -> {
+                    val rawMessage = result.exceptionOrNull()?.message
+                    val sanitizedMessage = mapServerErrorToMessage(rawMessage)
+                    LoginState.Error(sanitizedMessage)
+                }
             }
+        }
+    }
+
+    private fun mapServerErrorToMessage(rawMessage: String?): String {
+        return when {
+            rawMessage?.contains("401", ignoreCase = true) == true -> {
+                "Email or password is incorrect. Please try again."
+            }
+            rawMessage?.contains("500", ignoreCase = true) == true -> {
+                "Server is currently unavailable. Please try again later."
+            }
+            else -> "An unexpected error occurred. Please check your connection or try again."
         }
     }
 }

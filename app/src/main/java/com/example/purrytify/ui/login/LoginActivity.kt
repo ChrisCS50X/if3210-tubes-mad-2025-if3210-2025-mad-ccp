@@ -40,6 +40,11 @@ class LoginActivity : AppCompatActivity() {
         observeNetworkStatus()
     }
 
+    private fun isValidEmail(email: String): Boolean {
+        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    }
+
+
     private fun setupViewModel() {
         val tokenManager = TokenManager(applicationContext)
         val userRepository = UserRepository(tokenManager)
@@ -57,6 +62,12 @@ class LoginActivity : AppCompatActivity() {
         binding.btnLogin.setOnClickListener {
             val email = binding.etEmail.text.toString()
             val password = binding.etPassword.text.toString()
+
+            if (!isValidEmail(email)) {
+                Toast.makeText(this, "Invalid Email", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             viewModel.login(email, password)
         }
     }
