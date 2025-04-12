@@ -26,7 +26,8 @@ import com.example.purrytify.ui.player.MusicPlayerViewModel
 import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
 import com.example.purrytify.NavGraphDirections
 import com.example.purrytify.ui.player.NowPlayingFragment
-
+import com.example.purrytify.utils.ColorUtils
+import com.example.purrytify.utils.BackgroundColorProvider
 
 import androidx.activity.viewModels
 import androidx.lifecycle.ViewModelProvider
@@ -308,9 +309,9 @@ class MainActivity : AppCompatActivity() {
         binding.miniPlayer.tvMiniTitle.text = song.title
         binding.miniPlayer.tvMiniArtist.text = song.artist
 
-        musicPlayerViewModel.currentSong.value?.let { song ->
+        musicPlayerViewModel.currentSong.value?.let { currentSong ->
             lifecycleScope.launch {
-                val isLiked =repository.getLikedStatusBySongId(song.id)
+                val isLiked = repository.getLikedStatusBySongId(currentSong.id)
                 binding.miniPlayer.btnAddLiked.setImageResource(
                     if (isLiked) R.drawable.ic_minus else R.drawable.ic_plus
                 )
@@ -323,6 +324,10 @@ class MainActivity : AppCompatActivity() {
             .placeholder(R.drawable.placeholder_album)
             .error(R.drawable.placeholder_album)
             .into(binding.miniPlayer.ivMiniCover)
+            
+        // Use simple color provider instead of complex extraction
+        val backgroundColor = BackgroundColorProvider.getColorForSong(song)
+        BackgroundColorProvider.applyColorSafely(binding.miniPlayer.root, backgroundColor)
     }
 
     private fun navigateToNowPlaying(song: Song) {

@@ -16,6 +16,8 @@ import com.example.purrytify.databinding.FragmentNowPlayingBinding
 import java.util.concurrent.TimeUnit
 import android.util.Log
 import androidx.navigation.fragment.findNavController
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
+import com.example.purrytify.utils.BackgroundColorProvider
 
 class NowPlayingFragment : Fragment() {
 
@@ -24,7 +26,6 @@ class NowPlayingFragment : Fragment() {
 
     private val args: NowPlayingFragmentArgs by navArgs()
 
-    // Shared music player ViewModel
     private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
         MusicPlayerViewModelFactory(
             requireActivity().application,
@@ -52,12 +53,10 @@ class NowPlayingFragment : Fragment() {
     private fun setupUI() {
         Log.d("NowPlayingFragment", "Setting up UI")
 
-        // Replace navigation logic with direct navigation to previous fragment
         binding.btnBack.setOnClickListener {
             findNavController().navigateUp()
         }
 
-        // If we received a song via arguments, display it
         args.song?.let { song ->
             updateSongInfo(song)
         }
@@ -67,44 +66,42 @@ class NowPlayingFragment : Fragment() {
         binding.tvSongTitle.text = song.title
         binding.tvArtistName.text = song.artist
 
-        // Load album art with Glide
         Glide.with(this)
             .load(song.coverUrl)
             .placeholder(R.drawable.placeholder_album)
             .error(R.drawable.placeholder_album)
+            .transition(DrawableTransitionOptions.withCrossFade())
             .into(binding.ivAlbumCover)
 
-        // Format duration
         val minutes = TimeUnit.MILLISECONDS.toMinutes(song.duration)
         val seconds = TimeUnit.MILLISECONDS.toSeconds(song.duration) -
                 TimeUnit.MINUTES.toSeconds(minutes)
         binding.tvTotalDuration.text = String.format("%02d:%02d", minutes, seconds)
+
+        if (isAdded && !isDetached) {
+            val backgroundColor = BackgroundColorProvider.getColorForSong(song)
+            BackgroundColorProvider.applyColorSafely(binding.layoutNowPlaying, backgroundColor)
+        }
     }
 
     private fun setupControls() {
-        // Play/Pause button
         binding.btnPlayPause.setOnClickListener {
             musicPlayerViewModel.togglePlayPause()
         }
 
-        // Previous button - seek to start or previous song
         binding.btnPrevious.setOnClickListener {
             val currentPosition = musicPlayerViewModel.getCurrentPosition()
             if (currentPosition > 3000) {
-                // If more than 3 seconds played, seek to beginning
                 musicPlayerViewModel.seekTo(0)
             } else {
-                // Play the previous song
                 musicPlayerViewModel.playPreviousSong()
             }
         }
 
-        // Next button - now plays the next song
         binding.btnNext.setOnClickListener {
             musicPlayerViewModel.playNextSong()
         }
 
-        // SeekBar interaction
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
@@ -120,28 +117,24 @@ class NowPlayingFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        // Update UI when current song changes
         musicPlayerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
             song?.let { updateSongInfo(it) }
         }
 
-        // Update play/pause button
         musicPlayerViewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
             val icon = if (isPlaying) {
-                R.drawable.ic_pause // Create this resource
+                R.drawable.ic_pause
             } else {
-                R.drawable.ic_play // Create this resource
+                R.drawable.ic_play
             }
             binding.btnPlayPause.setImageResource(icon)
         }
 
-        // Update seek bar progress
         musicPlayerViewModel.progress.observe(viewLifecycleOwner) { progress ->
             binding.seekBar.progress = progress
             updateCurrentTime(progress.toLong())
         }
 
-        // Update seek bar max value
         musicPlayerViewModel.duration.observe(viewLifecycleOwner) { duration ->
             binding.seekBar.max = duration
         }
