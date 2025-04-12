@@ -40,9 +40,7 @@
     <action
         android:id="@+id/action_global_navigation_now_playing"
         app:destination="@id/navigation_now_playing"
-        app:launchSingleTop="true"
-        app:popUpTo="@id/nav_graph"
-        app:popUpToInclusive="false" />
+        app:launchSingleTop="true" />
 
     <fragment
         android:id="@+id/navigation_now_playing"
