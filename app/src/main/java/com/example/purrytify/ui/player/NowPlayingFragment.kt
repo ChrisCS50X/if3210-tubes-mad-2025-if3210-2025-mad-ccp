@@ -26,6 +26,8 @@ import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.example.purrytify.utils.BackgroundColorProvider
 import kotlinx.coroutines.launch
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.example.purrytify.service.DownloadManager
+import com.example.purrytify.data.model.Song
 
 class NowPlayingFragment : Fragment() {
 
@@ -34,6 +36,7 @@ class NowPlayingFragment : Fragment() {
 
     private val args: NowPlayingFragmentArgs by navArgs()
     private lateinit var songRepository: SongRepository
+    private lateinit var downloadManager: DownloadManager
 
     private val musicPlayerViewModel: MusicPlayerViewModel by activityViewModels {
         MusicPlayerViewModelFactory(
@@ -85,6 +88,10 @@ class NowPlayingFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Initialize download manager
+        downloadManager = DownloadManager(requireContext())
+        downloadManager.createNotificationChannel()
 
         setupUI()
         setupControls()
@@ -240,16 +247,33 @@ class NowPlayingFragment : Fragment() {
 
     private fun observeViewModel() {
         musicPlayerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
-            song?.let { updateSongInfo(it) }
+            song?.let {
+                updateSongInfo(it)
+
+                // Show loading indicator for online songs
+                if (song.filePath.startsWith("http")) {
+                    binding.loadingIndicator.visibility = View.VISIBLE
+                    binding.btnPlayPause.visibility = View.INVISIBLE
+                }
+
+                updateDownloadButtonVisibility(it)
+            }
         }
 
-        musicPlayerViewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
+        musicPlayerViewModel.isPlaying.observe(viewLifecycleOwner) { isPlayingValue ->
+            val isPlaying = isPlayingValue ?: false
             val icon = if (isPlaying) {
                 R.drawable.ic_pause
             } else {
                 R.drawable.ic_play
             }
             binding.btnPlayPause.setImageResource(icon)
+            binding.btnPlayPause.visibility = View.VISIBLE
+
+            // Only hide the loading indicator if we have a definite state
+            if (isPlayingValue != null) {
+                binding.loadingIndicator.visibility = View.GONE
+            }
         }
 
         musicPlayerViewModel.isShuffleEnabled.observe(viewLifecycleOwner) { isShuffleEnabled ->
@@ -288,6 +312,54 @@ class NowPlayingFragment : Fragment() {
         val seconds = TimeUnit.MILLISECONDS.toSeconds(position) -
                 TimeUnit.MINUTES.toSeconds(minutes)
         binding.tvCurrentTime.text = String.format("%02d:%02d", minutes, seconds)
+    }
+
+    private fun updateDownloadButtonVisibility(song: Song) {
+        lifecycleScope.launch {
+            try {
+                val songRepository = SongRepository(
+                    AppDatabase.getInstance(requireContext()).songDao(),
+                    requireContext()
+                )
+
+                val isOnlineSong = song.filePath.startsWith("http")
+                val isDownloaded = if (isOnlineSong) {
+                    songRepository.isDownloaded(song.id)
+                } else {
+                    true // Local songs are already "downloaded"
+                }
+
+                // Only show download button for online songs
+                binding.btnDownload.visibility = if (isOnlineSong) {
+                    if (isDownloaded) {
+                        binding.btnDownload.setImageResource(R.drawable.ic_download_done)
+                    } else {
+                        binding.btnDownload.setImageResource(R.drawable.ic_download)
+                    }
+                    View.VISIBLE
+                } else {
+                    View.GONE
+                }
+
+                // Set up download click listener
+                binding.btnDownload.setOnClickListener {
+                    if (!isDownloaded) {
+                        Toast.makeText(context,
+                            "Downloading ${song.title}...",
+                            Toast.LENGTH_SHORT).show()
+                        downloadManager.enqueueDownload(song)
+                        binding.btnDownload.isEnabled = false // Prevent multiple clicks
+                    } else {
+                        Toast.makeText(context,
+                            "Song already downloaded",
+                            Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("NowPlayingFragment", "Error updating download button: ${e.message}")
+                binding.btnDownload.visibility = View.GONE
+            }
+        }
     }
 
     override fun onDestroyView() {

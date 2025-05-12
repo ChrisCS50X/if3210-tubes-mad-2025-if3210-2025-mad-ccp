@@ -16,6 +16,10 @@
             app:launchSingleTop="true"
             app:popUpTo="@id/navigation_home"
             app:popUpToInclusive="false" />
+        <action
+            android:id="@+id/action_navigation_home_to_chart_detail"
+            app:destination="@id/navigation_chart_detail"
+            app:launchSingleTop="true" />
     </fragment>
 
     <fragment
@@ -54,5 +58,22 @@
             android:name="isPlaying"
             app:argType="boolean"
             android:defaultValue="false" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_chart_detail"
+        android:name="com.example.purrytify.ui.charts.ChartDetailFragment"
+        android:label="Chart Detail"
+        tools:layout="@layout/fragment_chart_detail">
+        <argument
+            android:name="chartType"
+            app:argType="string" />
+        <argument
+            android:name="countryCode"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_navigation_chart_detail_to_now_playing"
+            app:destination="@id/navigation_now_playing"
+            app:launchSingleTop="true" />
     </fragment>
 </navigation>

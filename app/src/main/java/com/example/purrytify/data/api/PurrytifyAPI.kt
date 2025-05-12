@@ -1,5 +1,6 @@
 package com.example.purrytify.data.api
 
+import com.example.purrytify.data.model.ChartSong
 import com.example.purrytify.data.model.LoginRequest
 import com.example.purrytify.data.model.LoginResponse
 import com.example.purrytify.data.model.UserProfile
@@ -9,6 +10,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 /**
  * Interface untuk semua endpoint API Purrytify.
@@ -49,4 +51,25 @@ interface PurrytifyAPI {
      */
     @GET("/api/verify-token")
     suspend fun verifyToken(@Header("Authorization") token: String): Response<Unit>
+
+
+    /**
+     * Get top 50 global songs
+     * @param token JWT token for authorization (format: "Bearer token")
+     * @return List of top songs globally
+     */
+    @GET("/api/top-songs/global")
+    suspend fun getGlobalTopSongs(@Header("Authorization") token: String): List<ChartSong>
+
+    /**
+     * Get top 10 songs for a specific country
+     * @param token JWT token for authorization (format: "Bearer token")
+     * @param countryCode ISO 3166-1 alpha-2 country code (e.g., ID, US, GB)
+     * @return List of top songs for the specified country
+     */
+    @GET("/api/top-songs/{country_code}")
+    suspend fun getCountryTopSongs(
+        @Header("Authorization") token: String,
+        @Path("country_code") countryCode: String
+    ): List<ChartSong>
 }

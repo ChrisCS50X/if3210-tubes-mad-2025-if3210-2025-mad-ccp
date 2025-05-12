@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
  * Bertanggung jawab buat komunikasi antara UI dan data source (database lokal).
  * Semua operasi database dibungkus di kelas ini.
  */
-class SongRepository(private val songDao: SongDao, context: Context) {
+class SongRepository(private val songDao: SongDao, private val context: Context) {
     private val tokenManager = TokenManager(context)
 
     /**
@@ -118,7 +118,7 @@ class SongRepository(private val songDao: SongDao, context: Context) {
      * Cek apakah lagu sudah di-like atau belum.
      */
     suspend fun getLikedStatusBySongId(songId: Long): Boolean {
-        return songDao.getLikedStatusBySongId(songId)
+        return songDao.getLikedStatusBySongId(songId) ?: false
     }
 
     /**
@@ -195,6 +195,44 @@ class SongRepository(private val songDao: SongDao, context: Context) {
                 // Loop balik ke akhir
                 allSongs.lastOrNull()
             }
+        }
+    }
+    /**
+     * Save a song from online source after downloading
+     */
+    suspend fun saveSongFromOnline(song: Song): Long {
+        return withContext(Dispatchers.IO) {
+            // Check if the song already exists in the database
+            val existingSong = songDao.getSongById(song.id)
+            if (existingSong != null) {
+                // Update the existing song with the new local file path
+                songDao.updateSongFilePath(song.id, song.filePath, tokenManager.getEmail() ?: "")
+                song.id
+            } else {
+                // Insert as a new song
+                val entity = song.toEntity(context).copy(userId = tokenManager.getEmail())
+                songDao.insertSong(entity)
+            }
+        }
+    }
+
+    /**
+     * Check if a song is downloaded (has local file)
+     */
+    suspend fun isDownloaded(songId: Long): Boolean {
+        return withContext(Dispatchers.IO) {
+            val song = songDao.getSongById(songId)
+            song?.filePath?.startsWith("/") == true || song?.filePath?.startsWith("file://") == true
+        }
+    }
+
+    /**
+     * Get song by ID
+     */
+    suspend fun getSongById(songId: Long): Song? {
+        return withContext(Dispatchers.IO) {
+            val entity = songDao.getSongById(songId)
+            entity?.toDomainModel()
         }
     }
 }

@@ -34,6 +34,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import androidx.navigation.NavOptions
 import com.bumptech.glide.Glide
+import android.content.Context
 
 class MainActivity : AppCompatActivity() {
     private val networkViewModel by viewModels<NetworkViewModel>()
@@ -299,9 +300,14 @@ class MainActivity : AppCompatActivity() {
 
         musicPlayerViewModel.currentSong.value?.let { currentSong ->
             lifecycleScope.launch {
-                val isLiked = repository.getLikedStatusBySongId(currentSong.id)
+                val isLiked = try {
+                    repository.getLikedStatusBySongId(currentSong.id)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error getting liked status: ${e.message}")
+                    false
+                }
                 binding.miniPlayer.btnAddLiked.setImageResource(
-                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                    if (isLiked == true) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
                 )
             }
         }
@@ -371,7 +377,14 @@ class MainActivity : AppCompatActivity() {
         if (::musicPlayerViewModel.isInitialized) {
             try {
                 val filter = android.content.IntentFilter("com.example.purrytify.PLAY_NEXT")
-                registerReceiver(songCompletionReceiver, filter)
+
+                // Use the Context.RECEIVER_NOT_EXPORTED flag for Android 14+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    registerReceiver(songCompletionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    registerReceiver(songCompletionReceiver, filter)
+                }
+
                 Log.d("MainActivity", "Registered song completion broadcast receiver")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error registering receiver: ${e.message}")

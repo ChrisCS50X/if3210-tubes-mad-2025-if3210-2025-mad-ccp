@@ -9,12 +9,12 @@ import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.bumptech.glide.Glide
-import com.example.purrytify.R
 import com.example.purrytify.data.local.AppDatabase
+import com.example.purrytify.data.local.TokenManager
 import com.example.purrytify.data.model.Song
 import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.databinding.FragmentHomeBinding
+import com.example.purrytify.ui.adapter.ChartsAdapter
 import com.example.purrytify.ui.adapter.NewSongsAdapter
 import com.example.purrytify.ui.adapter.RecentlyPlayedAdapter
 import com.example.purrytify.ui.player.MusicPlayerViewModel
@@ -56,18 +56,43 @@ class HomeFragment : Fragment() {
         val songDao = AppDatabase.getInstance(requireContext()).songDao()
         val songRepository = SongRepository(songDao, requireContext().applicationContext)
 
-        val viewModelFactory = HomeViewModelFactory(songRepository,requireContext().applicationContext)
+        val viewModelFactory = HomeViewModelFactory(songRepository, requireContext().applicationContext)
         homeViewModel = ViewModelProvider(this, viewModelFactory)[HomeViewModel::class.java]
     }
 
     private fun setupEmptyStateButtons() {
         binding.btnBrowseMusic.setOnClickListener {
-            // Pindah ke halaman library
-            findNavController().navigate(R.id.navigation_library)
+            findNavController().navigate(com.example.purrytify.R.id.navigation_library)
         }
     }
 
     private fun observeViewModel() {
+        // Observe charts
+        homeViewModel.chartItems.observe(viewLifecycleOwner) { charts ->
+            if (charts.isNotEmpty()) {
+                binding.rvCharts.visibility = View.VISIBLE
+                binding.layoutChartsEmpty.visibility = View.GONE
+
+                binding.rvCharts.apply {
+                    layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+                    adapter = ChartsAdapter(charts) { chart ->
+                        navigateToChartDetail(chart.type, chart.id.split("_").getOrNull(1) ?: "ID")
+                    }
+                }
+            } else {
+                binding.rvCharts.visibility = View.GONE
+                binding.layoutChartsEmpty.visibility = View.VISIBLE
+            }
+        }
+
+        homeViewModel.chartsLoading.observe(viewLifecycleOwner) { isLoading ->
+            if (isLoading) {
+                binding.rvCharts.visibility = View.GONE
+                binding.layoutChartsEmpty.visibility = View.GONE
+            }
+        }
+
+        // Observe new songs
         homeViewModel.newSongs.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvNewSongs.visibility = View.VISIBLE
@@ -85,6 +110,7 @@ class HomeFragment : Fragment() {
             }
         }
 
+        // Observe recently played
         homeViewModel.recentlyPlayed.observe(viewLifecycleOwner) { songs ->
             if (songs.isNotEmpty()) {
                 binding.rvRecentlyPlayed.visibility = View.VISIBLE
@@ -101,6 +127,14 @@ class HomeFragment : Fragment() {
                 binding.layoutRecentlyPlayedEmpty.visibility = View.VISIBLE
             }
         }
+    }
+
+    private fun navigateToChartDetail(chartType: String, countryCode: String) {
+        val action = HomeFragmentDirections.actionNavigationHomeToChartDetail(
+            chartType = chartType,
+            countryCode = countryCode
+        )
+        findNavController().navigate(action)
     }
 
     override fun onDestroyView() {

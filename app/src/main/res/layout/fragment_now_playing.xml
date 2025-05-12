@@ -133,6 +133,21 @@
         app:layout_constraintTop_toBottomOf="@+id/seekBar"
         tools:text="3:45" />
 
+    <ImageButton
+        android:id="@+id/btnDownload"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="12dp"
+        android:src="@drawable/ic_download"
+        app:tint="@color/white"
+        android:visibility="gone"
+        android:contentDescription="Download song"
+        app:layout_constraintStart_toEndOf="@id/btnFavorite"
+        app:layout_constraintTop_toTopOf="@id/btnFavorite"
+        app:layout_constraintBottom_toBottomOf="@id/btnFavorite"
+        android:layout_marginStart="8dp" />
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutControls"
         android:layout_width="match_parent"
@@ -161,6 +176,17 @@
             app:layout_constraintBottom_toBottomOf="@id/btnPlayPause"
             app:layout_constraintEnd_toStartOf="@id/btnPlayPause"
             app:layout_constraintTop_toTopOf="@id/btnPlayPause" />
+
+
+        <ProgressBar
+            android:id="@+id/loadingIndicator"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="@id/btnPlayPause"
+            app:layout_constraintBottom_toBottomOf="@id/btnPlayPause"
+            app:layout_constraintStart_toStartOf="@id/btnPlayPause"
+            app:layout_constraintEnd_toEndOf="@id/btnPlayPause" />
 
         <ImageButton
             android:id="@+id/btnPlayPause"
@@ -210,6 +236,7 @@
             android:contentDescription="Toggle repeat mode"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="@id/btnPlayPause" />
+
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

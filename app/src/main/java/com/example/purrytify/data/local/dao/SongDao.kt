@@ -113,4 +113,10 @@ interface SongDao {
      */
     @Query("SELECT * FROM songs WHERE userId = :userId ORDER BY title ASC")
     suspend fun getAllSongsByUserIdOrdered(userId: String?): List<SongEntity>
+
+    @Query("SELECT * FROM songs WHERE id = :id LIMIT 1")
+    suspend fun getSongById(id: Long): SongEntity?
+
+    @Query("UPDATE songs SET filePath = :filePath WHERE id = :id AND userId = :userId")
+    suspend fun updateSongFilePath(id: Long, filePath: String, userId: String)
 }
