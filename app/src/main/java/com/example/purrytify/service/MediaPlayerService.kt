@@ -156,26 +156,64 @@ class MediaPlayerService : LifecycleService() {
     }
 
     private suspend fun getLocalFilePathIfAvailable(song: Song): String {
-        val repository = SongRepository(
-            AppDatabase.getInstance(applicationContext).songDao(),
-            applicationContext
-        )
+        try {
+            val repository = SongRepository(
+                AppDatabase.getInstance(applicationContext).songDao(),
+                applicationContext
+            )
 
-        // If song is online (URL) and we have a downloaded version, use the local path
-        if (song.filePath.startsWith("http")) {
-            try {
-                val localSong = repository.getSongById(song.id)
-                if (localSong != null && !localSong.filePath.startsWith("http")) {
-                    Log.d(TAG, "Using local file for song: ${song.title}")
-                    return localSong.filePath
+            // If song is online (URL) and we have a downloaded version, use the local path
+            if (song.filePath.startsWith("http")) {
+                try {
+                    val localSong = repository.getSongById(song.id)
+                    if (localSong != null &&
+                        !localSong.filePath.startsWith("http") &&
+                        java.io.File(localSong.filePath).exists()) {
+
+                        Log.d(TAG, "Found verified local file for song: ${song.title}")
+                        return localSong.filePath
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error checking for local file: ${e.message}")
+                    // Fall through to return original path
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error checking for local file: ${e.message}")
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error in getLocalFilePathIfAvailable", e)
         }
 
         // Otherwise use the original path
         return song.filePath
+    }
+
+    private fun stopMediaPlayer() {
+        try {
+            mediaPlayer?.let { player ->
+                // Step-by-step safe cleanup
+                try {
+                    if (player.isPlaying) {
+                        player.stop()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error stopping player: ${e.message}", e)
+                }
+
+                try {
+                    player.reset()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error resetting player: ${e.message}", e)
+                }
+
+                try {
+                    player.release()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error releasing player: ${e.message}", e)
+                }
+            }
+            mediaPlayer = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during MediaPlayer cleanup: ${e.message}", e)
+        }
     }
 
     /**
@@ -183,16 +221,11 @@ class MediaPlayerService : LifecycleService() {
      * Reset player lama (kalo ada) dan bikin player baru.
      */
     fun playSong(song: Song) {
-        try {
-            Log.d(TAG, "playSong: Attempting to play: ${song.title}")
-            Log.d(TAG, "playSong: File path: ${song.filePath}")
+        Log.d(TAG, "playSong: Starting to play ${song.title}")
+        Log.d(TAG, "playSong: File path: ${song.filePath}")
 
-            // Release existing player
-            mediaPlayer?.let {
-                Log.d(TAG, "playSong: Releasing existing MediaPlayer")
-                it.stop()
-                it.release()
-            }
+        try {
+            stopMediaPlayer()
 
             // Initialize LiveData values
             _isPlaying.postValue(false)
@@ -208,14 +241,15 @@ class MediaPlayerService : LifecycleService() {
                         .build()
                 )
 
-                setOnPreparedListener {
+                // Set up all listeners BEFORE setting data source
+                setOnPreparedListener { mp ->
                     Log.d(TAG, "MediaPlayer onPrepared: Ready to play")
+                    // Don't automatically start here - that will happen in the
+                    // online or offline specific code paths
                 }
 
-                setOnCompletionListener {
+                setOnCompletionListener { mp ->
                     Log.d(TAG, "MediaPlayer onCompletion: Playback completed")
-
-                    // Better approach - post to main handler instead of broadcasting
                     mainHandler.post {
                         try {
                             // Update playing status
@@ -247,18 +281,16 @@ class MediaPlayerService : LifecycleService() {
                     false
                 }
 
-                setOnInfoListener { _, what, extra ->
-                    Log.d(TAG, "MediaPlayer onInfo: what=$what, extra=$extra")
-                    true
-                }
-
                 try {
-                    // Check if song is from online (URL starting with http/https)
-                    if (song.filePath.startsWith("http://") || song.filePath.startsWith("https://")) {
-                        // NEW CODE: Check for downloaded version first
-                        val localPath = runBlocking { getLocalFilePathIfAvailable(song) }
+                    val isOnlineSource = song.filePath.startsWith("http://") ||
+                            song.filePath.startsWith("https://")
 
-                        if (!localPath.startsWith("http")) {
+                    if (isOnlineSource) {
+                        // Check for downloaded version first
+                        val localPath = runBlocking { getLocalFilePathIfAvailable(song) }
+                        val useLocalFile = !localPath.startsWith("http")
+
+                        if (useLocalFile) {
                             // We have a local downloaded version - use it instead of streaming
                             Log.d(TAG, "playSong: Using downloaded local file: $localPath")
 
@@ -270,22 +302,37 @@ class MediaPlayerService : LifecycleService() {
                                 "file://$localPath".toUri()
                             }
 
-                            setDataSource(applicationContext, uri)
-                            prepare()
-                            _duration.postValue(duration)
+                            // Special preparation for local files
+                            try {
+                                setDataSource(applicationContext, uri)
+                                prepare()  // Synchronous for local files
+                                _duration.postValue(duration)
 
-                            // Local files can start playing immediately
-                            start()
-                            _isPlaying.postValue(true)
-                            startProgressUpdates()
-                            updateNotification()
-                            return@apply
+                                // Local files can start playing immediately
+                                start()
+                                _isPlaying.postValue(true)
+                                startProgressUpdates()
+                                updateNotification()
+
+                                // Notification must be created AFTER MediaPlayer is prepared
+                                try {
+                                    Log.d(TAG, "playSong: Starting foreground service with notification")
+                                    startForeground(NOTIFICATION_ID, createNotification(song))
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error starting foreground service", e)
+                                }
+
+                                return@apply  // Exit early
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error playing local file, falling back to online source", e)
+                                // Continue to online path as fallback
+                            }
                         }
 
-                        // No local version - continue with streaming
+                        // Online streaming path
                         Log.d(TAG, "playSong: Streaming online URL: ${song.filePath}")
 
-                        // For online URLs, set listener before setDataSource
+                        // For online URLs, set prepared listener before setDataSource
                         setOnPreparedListener { mp ->
                             Log.d(TAG, "MediaPlayer onPrepared: Ready to play online content")
                             _duration.postValue(mp.duration)
@@ -301,17 +348,25 @@ class MediaPlayerService : LifecycleService() {
                             }
                         }
 
-                        // Direct URL for online streams
+                        // Set URL for online streams
                         setDataSource(song.filePath)
 
-                        // Set a default duration while we wait for the actual value
+                        // Set default duration while we wait for the actual value
                         _duration.postValue(0)
 
                         // Asynchronous preparation for streaming
                         Log.d(TAG, "playSong: DataSource set, preparing async for online content...")
                         prepareAsync()
+
+                        // Notification must be created even before preparation completes
+                        try {
+                            Log.d(TAG, "playSong: Starting foreground service with notification")
+                            startForeground(NOTIFICATION_ID, createNotification(song))
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error starting foreground service", e)
+                        }
                     } else {
-                        // Handle URI format for local files
+                        // Standard local file path handling
                         val uri = if (song.filePath.startsWith("content://") ||
                             song.filePath.startsWith("android.resource://") ||
                             song.filePath.startsWith("file://")) {
@@ -326,31 +381,31 @@ class MediaPlayerService : LifecycleService() {
                         prepare()
                         Log.d(TAG, "playSong: MediaPlayer prepared successfully, duration: ${duration}ms")
                         _duration.postValue(duration)
+
+                        // Start playing immediately
+                        start()
+                        _isPlaying.postValue(true)
+                        startProgressUpdates()
+
+                        // Notification creation after successful preparation
+                        try {
+                            Log.d(TAG, "playSong: Starting foreground service with notification")
+                            startForeground(NOTIFICATION_ID, createNotification(song))
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error starting foreground service", e)
+                        }
                     }
                 } catch (e: IOException) {
                     Log.e(TAG, "playSong: Error preparing MediaPlayer", e)
                     _isPlaying.postValue(false)
-                    return
                 } catch (e: IllegalStateException) {
                     Log.e(TAG, "playSong: IllegalStateException preparing MediaPlayer", e)
                     _isPlaying.postValue(false)
-                    return
                 } catch (e: IllegalArgumentException) {
                     Log.e(TAG, "playSong: IllegalArgumentException with URI", e)
                     _isPlaying.postValue(false)
-                    return
                 }
             }
-
-            Log.d(TAG, "playSong: Starting foreground service with notification")
-            startForeground(NOTIFICATION_ID, createNotification(song))
-
-            // Only start playing immediately for regular local files
-            // (Downloaded files are handled in the above code)
-            if (!song.filePath.startsWith("http://") && !song.filePath.startsWith("https://")) {
-                play()
-            }
-
         } catch (e: Exception) {
             Log.e(TAG, "playSong: Unexpected error", e)
             _isPlaying.postValue(false)
@@ -636,7 +691,7 @@ class MediaPlayerService : LifecycleService() {
      */
     private fun createNotification(song: Song): Notification {
         Log.d(TAG, "createNotification: Creating notification for ${song.title}")
-        // Bikin channel cuma di Android O ke atas
+        // Create channel only in Android O and above
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
@@ -649,14 +704,14 @@ class MediaPlayerService : LifecycleService() {
             Log.d(TAG, "createNotification: Notification channel created")
         }
 
-        // Bikin intent buat pas notifikasi diklik
+        // Create intent for when notification is clicked
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Bikin notifikasi
+        // Create notification
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_music_note)
             .setContentTitle(song.title)
@@ -665,8 +720,14 @@ class MediaPlayerService : LifecycleService() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-        // Tambahin action play/pause
-        val isCurrentlyPlaying = mediaPlayer?.isPlaying ?: false
+        // Add play/pause action
+        val isCurrentlyPlaying = try {
+            mediaPlayer?.isPlaying ?: false
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "Error checking isPlaying state in notification", e)
+            _isPlaying.value ?: false // Use LiveData value as fallback
+        }
+
         Log.d(TAG, "createNotification: Current playback state: isPlaying=$isCurrentlyPlaying")
 
         val playPauseAction = if (isCurrentlyPlaying) {
@@ -693,13 +754,17 @@ class MediaPlayerService : LifecycleService() {
      * Dipanggil saat status play/pause berubah.
      */
     private fun updateNotification() {
-        Log.d(TAG, "updateNotification: Updating notification")
-        _currentSong.value?.let { song ->
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(NOTIFICATION_ID, createNotification(song))
-            Log.d(TAG, "updateNotification: Notification updated")
-        } ?: run {
-            Log.d(TAG, "updateNotification: No current song, skipping notification update")
+        try {
+            Log.d(TAG, "updateNotification: Updating notification")
+            _currentSong.value?.let { song ->
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.notify(NOTIFICATION_ID, createNotification(song))
+                Log.d(TAG, "updateNotification: Notification updated")
+            } ?: run {
+                Log.d(TAG, "updateNotification: No current song, skipping notification update")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating notification: ${e.message}", e)
         }
     }
 
