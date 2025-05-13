@@ -10,6 +10,7 @@ import com.example.purrytify.data.mapper.toDomainModel
 import com.example.purrytify.data.mapper.toEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import android.util.Log
 
 
 /**
@@ -118,7 +119,13 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
      * Cek apakah lagu sudah di-like atau belum.
      */
     suspend fun getLikedStatusBySongId(songId: Long): Boolean {
-        return songDao.getLikedStatusBySongId(songId) ?: false
+        return try {
+            // Add null safety to prevent NPE
+            songDao.getLikedStatusBySongId(songId) ?: false
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Error checking like status for song $songId: ${e.message}")
+            false // Default to "not liked" if there's any error
+        }
     }
 
     /**

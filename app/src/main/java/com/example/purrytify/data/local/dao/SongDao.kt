@@ -83,8 +83,8 @@ interface SongDao {
      * Cek apakah lagu sudah di-like atau belum.
      * Buat nampilin status like di halaman pemutaran.
      */
-    @Query("SELECT isLiked FROM songs WHERE id = :songId")
-    suspend fun getLikedStatusBySongId(songId: Long): Boolean
+    @Query("SELECT isLiked FROM songs WHERE id = :songId LIMIT 1")
+    suspend fun getLikedStatusBySongId(songId: Long): Boolean?
 
     /**
      * Hitung jumlah lagu yang di-like user.

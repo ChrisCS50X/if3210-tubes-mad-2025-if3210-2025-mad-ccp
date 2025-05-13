@@ -98,4 +98,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    implementation ("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
 }

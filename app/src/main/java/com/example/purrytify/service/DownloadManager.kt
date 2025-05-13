@@ -17,13 +17,21 @@ import java.io.FileOutputStream
 import java.net.URL
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import android.app.PendingIntent
+import android.content.Intent
+import android.media.RingtoneManager
+import android.widget.Toast
+import androidx.lifecycle.LiveData
 
 class DownloadManager(private val context: Context) {
     private val workManager = WorkManager.getInstance(context)
     private val TAG = "DownloadManager"
 
+    private val activeDownloads = mutableMapOf<Long, LiveData<WorkInfo>>()
+
     companion object {
         const val NOTIFICATION_CHANNEL_ID = "download_channel"
+        const val NOTIFICATION_COMPLETE_CHANNEL_ID = "download_complete_channel"
         const val NOTIFICATION_ID = 200
 
         // Worker input data keys
@@ -34,6 +42,16 @@ class DownloadManager(private val context: Context) {
         const val KEY_SONG_COVER_URL = "song_cover_url"
         const val KEY_SONG_DURATION = "song_duration"
     }
+
+    fun isDownloading(songId: Long): Boolean {
+        val workInfo = activeDownloads[songId]?.value
+        return workInfo?.state == WorkInfo.State.RUNNING || workInfo?.state == WorkInfo.State.ENQUEUED
+    }
+
+    fun clearDownload(songId: Long) {
+        activeDownloads.remove(songId)
+    }
+
 
     fun enqueueDownload(song: Song): UUID {
         Log.d(TAG, "Enqueueing download for ${song.title}")
@@ -66,25 +84,47 @@ class DownloadManager(private val context: Context) {
         // Enqueue download
         workManager.enqueue(downloadRequest)
 
+        // Store the download status LiveData for this song
+        val statusLiveData = workManager.getWorkInfoByIdLiveData(downloadRequest.id)
+        activeDownloads[song.id] = statusLiveData
+
         return downloadRequest.id
     }
 
     fun getDownloadStatus(workerId: UUID) = workManager.getWorkInfoByIdLiveData(workerId)
 
+    fun getDownloadStatusBySongId(songId: Long): LiveData<WorkInfo>? {
+        return activeDownloads[songId]
+    }
+
     // Create notification channel for downloads
     fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
+            // Create download progress channel (low importance)
+            val progressChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "Downloads",
+                "Download Progress",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Song download notifications"
+                description = "Shows progress of song downloads"
                 enableVibration(false)
+                setSound(null, null)
+            }
+
+            // Create download completion channel (default importance)
+            val completionChannel = NotificationChannel(
+                NOTIFICATION_COMPLETE_CHANNEL_ID,
+                "Download Complete",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Notifies when songs are downloaded successfully"
+                enableVibration(true)
+                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), null)
             }
 
             val notificationManager = context.getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
+            notificationManager.createNotificationChannel(progressChannel)
+            notificationManager.createNotificationChannel(completionChannel)
         }
     }
 
@@ -196,15 +236,43 @@ class DownloadManager(private val context: Context) {
                 }
 
                 // Show completion notification
-                val completeNotification = NotificationCompat.Builder(applicationContext, NOTIFICATION_CHANNEL_ID)
+                val intent = applicationContext.packageManager
+                    .getLaunchIntentForPackage(applicationContext.packageName)?.apply {
+                        // Add flags to clear previous activities and start fresh
+                        this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        // Add data to direct to library fragment
+                        this.putExtra("NAVIGATE_TO", "LIBRARY")
+                    }
+
+                val pendingIntent = PendingIntent.getActivity(
+                    applicationContext,
+                    0,
+                    intent ?: Intent(),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // Show notification
+                val completeNotification = NotificationCompat.Builder(applicationContext, NOTIFICATION_COMPLETE_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_download_done)
                     .setContentTitle("Download Complete")
-                    .setContentText("$songTitle has been downloaded")
-                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setContentText("$songTitle by $songArtist is ready to play")
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    .setCategory(NotificationCompat.CATEGORY_STATUS)
                     .setAutoCancel(true)
+                    .setContentIntent(pendingIntent)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                     .build()
 
                 notificationManager.notify(NOTIFICATION_ID + songId.toInt(), completeNotification)
+
+                // Show toast on UI thread using a handler
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        applicationContext,
+                        "$songTitle downloaded successfully",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
 
                 Result.success()
             } catch (e: Exception) {

@@ -13,6 +13,10 @@ import com.example.purrytify.databinding.ItemChartSongBinding
 import com.example.purrytify.service.DownloadManager
 import kotlinx.coroutines.launch
 import android.util.Log
+import androidx.lifecycle.Observer
+import androidx.work.WorkInfo
+import com.example.purrytify.utils.findFragment
+import androidx.fragment.app.Fragment
 
 class ChartSongsAdapter(
     private var songs: List<ChartSong>,
@@ -22,10 +26,13 @@ class ChartSongsAdapter(
     private val downloadManager: DownloadManager
 ) : RecyclerView.Adapter<ChartSongsAdapter.ChartSongViewHolder>() {
 
+    // Add this map to store observers by position
+    private val observers = mutableMapOf<Int, Observer<WorkInfo>>()
+
     inner class ChartSongViewHolder(private val binding: ItemChartSongBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(song: ChartSong) {
+        fun bind(song: ChartSong, position: Int) {
             binding.tvRank.text = "#${song.rank}"
             binding.tvSongTitle.text = song.title
             binding.tvArtist.text = song.artist
@@ -49,13 +56,47 @@ class ChartSongsAdapter(
                     )
 
                     btnDownload.setOnClickListener {
-                        if (!isDownloaded) {
+                        if (!isDownloaded && !downloadManager.isDownloading(convertedSong.id)) {
                             Toast.makeText(
                                 binding.root.context,
                                 "Downloading ${song.title}...",
                                 Toast.LENGTH_SHORT
                             ).show()
-                            downloadManager.enqueueDownload(convertedSong)
+
+                            val downloadId = downloadManager.enqueueDownload(convertedSong)
+
+                            // Create and store an observer for this download
+                            observers[position]?.let { oldObserver ->
+                                downloadManager.getDownloadStatusBySongId(convertedSong.id)
+                                    ?.removeObserver(oldObserver)
+                            }
+
+                            val observer = Observer<WorkInfo> { workInfo ->
+                                when (workInfo.state) {
+                                    WorkInfo.State.SUCCEEDED -> {
+                                        btnDownload.setImageResource(R.drawable.ic_download_done)
+                                        downloadManager.clearDownload(convertedSong.id)
+                                        observers.remove(position)
+                                    }
+                                    WorkInfo.State.RUNNING -> {
+                                        // Show a "downloading" icon if you have one
+                                        btnDownload.isEnabled = false
+                                    }
+                                    WorkInfo.State.FAILED -> {
+                                        btnDownload.setImageResource(R.drawable.ic_download)
+                                        btnDownload.isEnabled = true
+                                        downloadManager.clearDownload(convertedSong.id)
+                                        observers.remove(position)
+                                    }
+                                    else -> {}
+                                }
+                            }
+
+                            observers[position] = observer
+
+                            // Start observing the download status
+                            downloadManager.getDownloadStatusBySongId(convertedSong.id)
+                                ?.observe(binding.root.findFragment<Fragment>().viewLifecycleOwner, observer)
                         } else {
                             Toast.makeText(
                                 binding.root.context,
@@ -81,13 +122,20 @@ class ChartSongsAdapter(
     }
 
     override fun onBindViewHolder(holder: ChartSongViewHolder, position: Int) {
-        holder.bind(songs[position])
+        holder.bind(songs[position], position)
     }
 
     override fun getItemCount() = songs.size
 
     fun updateSongs(newSongs: List<ChartSong>) {
         songs = newSongs
+        // Clear any existing observers when the dataset changes
+        observers.clear()
         notifyDataSetChanged()
+    }
+
+    // Clean up observers when adapter is detached
+    fun clearObservers() {
+        observers.clear()
     }
 }

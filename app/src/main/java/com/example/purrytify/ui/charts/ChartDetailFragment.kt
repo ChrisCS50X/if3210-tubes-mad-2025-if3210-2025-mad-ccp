@@ -146,6 +146,7 @@ class ChartDetailFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        adapter.clearObservers()
         _binding = null
     }
 }

@@ -140,12 +140,17 @@ class NowPlayingFragment : Fragment() {
         binding.btnFavorite.setOnClickListener {
             musicPlayerViewModel.currentSong.value?.let { song ->
                 lifecycleScope.launch {
-                    if (songRepository.getLikedStatusBySongId(song.id)) {
-                        songRepository.updateLikeStatus(song.id, false)
-                        binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
-                    } else {
-                        songRepository.updateLikeStatus(song.id, true)
-                        binding.btnFavorite.setImageResource(R.drawable.ic_heart_filled)
+                    try {
+                        if (songRepository.getLikedStatusBySongId(song.id)) {
+                            songRepository.updateLikeStatus(song.id, false)
+                            binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
+                        } else {
+                            songRepository.updateLikeStatus(song.id, true)
+                            binding.btnFavorite.setImageResource(R.drawable.ic_heart_filled)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("NowPlayingFragment", "Error toggling liked status: ${e.message}")
+                        Toast.makeText(requireContext(), "Error updating like status", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -154,23 +159,34 @@ class NowPlayingFragment : Fragment() {
         args.song?.let { song ->
             updateSongInfo(song)
             lifecycleScope.launch {
-                val isLiked = songRepository.getLikedStatusBySongId(song.id)
-                binding.btnFavorite.setImageResource(
-                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                )
+                try {
+                    val isLiked = songRepository.getLikedStatusBySongId(song.id)
+                    binding.btnFavorite.setImageResource(
+                        if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                    )
+                } catch (e: Exception) {
+                    Log.e("NowPlayingFragment", "Error checking initial liked status: ${e.message}")
+                    binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
+                }
             }
         }
     }
 
-    private fun updateSongInfo(song: com.example.purrytify.data.model.Song) {
+    private fun updateSongInfo(song: Song) {
         binding.tvSongTitle.text = song.title
         binding.tvArtistName.text = song.artist
 
+        // Add try-catch around liked status check
         lifecycleScope.launch {
-            val isLiked = songRepository.getLikedStatusBySongId(song.id)
-            binding.btnFavorite.setImageResource(
-                if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-            )
+            try {
+                val isLiked = songRepository.getLikedStatusBySongId(song.id)
+                binding.btnFavorite.setImageResource(
+                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                )
+            } catch (e: Exception) {
+                Log.e("NowPlayingFragment", "Error checking liked status: ${e.message}")
+                binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
+            }
         }
 
         Glide.with(this)

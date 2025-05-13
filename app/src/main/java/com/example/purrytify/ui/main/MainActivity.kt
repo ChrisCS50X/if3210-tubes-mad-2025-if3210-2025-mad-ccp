@@ -35,6 +35,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavOptions
 import com.bumptech.glide.Glide
 import android.content.Context
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class MainActivity : AppCompatActivity() {
     private val networkViewModel by viewModels<NetworkViewModel>()
@@ -242,12 +243,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.miniPlayer.root.setOnClickListener {
-            val currentSong = musicPlayerViewModel.currentSong.value
-            if (currentSong != null) {
-                navigateToNowPlaying(currentSong)
-            } else {
-                binding.miniPlayerContainer.visibility = View.GONE
-                Toast.makeText(this, "This song is no longer available", Toast.LENGTH_SHORT).show()
+            try {
+                val currentSong = musicPlayerViewModel.currentSong.value
+                if (currentSong != null) {
+                    // Use your existing navigation method
+                    navigateToNowPlaying(currentSong)
+                } else {
+                    binding.miniPlayerContainer.visibility = View.GONE
+                    Toast.makeText(this, "Song is still loading", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error navigating to now playing: ${e.message}", e)
+                Toast.makeText(this, "Unable to open player", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -307,7 +314,7 @@ class MainActivity : AppCompatActivity() {
                     false
                 }
                 binding.miniPlayer.btnAddLiked.setImageResource(
-                    if (isLiked == true) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
                 )
             }
         }
@@ -323,20 +330,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun navigateToNowPlaying(song: Song) {
-        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-        val navController = navHostFragment.navController
+        try {
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+            val navController = navHostFragment.navController
 
-        currentTab = navController.currentDestination?.id ?: R.id.navigation_home
+            // Save current tab for later
+            currentTab = navController.currentDestination?.id ?: R.id.navigation_home
 
-        val action = NavGraphDirections.actionGlobalNavigationNowPlaying(
-            song, musicPlayerViewModel.isPlaying.value ?: false
-        )
+            val action = NavGraphDirections.actionGlobalNavigationNowPlaying(
+                song, musicPlayerViewModel.isPlaying.value ?: false
+            )
 
-        val navOptions = NavOptions.Builder()
-            .setLaunchSingleTop(true)
-            .build()
+            val navOptions = NavOptions.Builder()
+                .setLaunchSingleTop(true)
+                .setEnterAnim(R.anim.slide_in_up)
+                .setExitAnim(R.anim.fade_out)
+                .build()
 
-        navController.navigate(action.actionId, action.arguments, navOptions)
+            navController.navigate(action.actionId, action.arguments, navOptions)
+
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Navigation error: ${e.message}", e)
+            // Handle navigation failures gracefully
+            Toast.makeText(this, "Unable to open player", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun logBackStack(navController: NavController) {
@@ -378,11 +395,18 @@ class MainActivity : AppCompatActivity() {
             try {
                 val filter = android.content.IntentFilter("com.example.purrytify.PLAY_NEXT")
 
-                // Use the Context.RECEIVER_NOT_EXPORTED flag for Android 14+
+                // Use the RECEIVER_NOT_EXPORTED flag for Android 14+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    registerReceiver(songCompletionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                    registerReceiver(
+                        songCompletionReceiver,
+                        filter,
+                        Context.RECEIVER_NOT_EXPORTED
+                    )
                 } else {
-                    registerReceiver(songCompletionReceiver, filter)
+                    // For older versions, regular registration is fine since it's a local broadcast
+                    // For even better practice, consider using LocalBroadcastManager
+                    androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this)
+                        .registerReceiver(songCompletionReceiver, filter)
                 }
 
                 Log.d("MainActivity", "Registered song completion broadcast receiver")
@@ -396,7 +420,12 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
 
         try {
-            unregisterReceiver(songCompletionReceiver)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                unregisterReceiver(songCompletionReceiver)
+            } else {
+                androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this)
+                    .unregisterReceiver(songCompletionReceiver)
+            }
             Log.d("MainActivity", "Unregistered song completion broadcast receiver")
         } catch (e: Exception) {
             Log.e("MainActivity", "Error unregistering receiver: ${e.message}")
