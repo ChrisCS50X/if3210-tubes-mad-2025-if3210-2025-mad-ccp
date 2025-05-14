@@ -22,11 +22,28 @@ import com.example.purrytify.service.DownloadManager
 import com.example.purrytify.ui.adapter.ChartSongsAdapter
 import com.example.purrytify.ui.player.MusicPlayerViewModel
 import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class ChartDetailFragment : Fragment() {
 
     private var _binding: FragmentChartDetailBinding? = null
     private val binding get() = _binding!!
+
+    private val paddingReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val padding = intent?.getIntExtra("padding", 0) ?: 0
+            binding.rvChartSongs.setPadding(
+                binding.rvChartSongs.paddingLeft,
+                binding.rvChartSongs.paddingTop,
+                binding.rvChartSongs.paddingRight,
+                padding
+            )
+        }
+    }
 
     private val args: ChartDetailFragmentArgs by navArgs()
     private val viewModel: ChartDetailViewModel by viewModels {
@@ -73,6 +90,11 @@ class ChartDetailFragment : Fragment() {
         setupRecyclerView()
         observeViewModel()
         viewModel.loadChartSongs()
+
+        // Register for padding updates
+        val filter = IntentFilter("com.example.purrytify.UPDATE_BOTTOM_PADDING")
+        LocalBroadcastManager.getInstance(requireContext())
+            .registerReceiver(paddingReceiver, filter)
     }
 
     private fun setupUI() {
@@ -145,8 +167,16 @@ class ChartDetailFragment : Fragment() {
     }
 
     override fun onDestroyView() {
-        super.onDestroyView()
+        // Unregister receiver
+        try {
+            LocalBroadcastManager.getInstance(requireContext())
+                .unregisterReceiver(paddingReceiver)
+        } catch (e: Exception) {
+            // Handle case where receiver wasn't registered
+        }
+
         adapter.clearObservers()
         _binding = null
+        super.onDestroyView()
     }
 }

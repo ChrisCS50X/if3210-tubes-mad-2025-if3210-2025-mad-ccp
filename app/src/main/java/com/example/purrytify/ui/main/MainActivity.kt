@@ -107,6 +107,7 @@ class MainActivity : AppCompatActivity() {
             setContentView(binding.root)
             setupMusicPlayer()
             setupNavigation()
+            setupListPadding()
             checkPermissions()
             requestNotificationPermission()
             setupTokenRefresh()
@@ -429,6 +430,22 @@ class MainActivity : AppCompatActivity() {
             Log.d("MainActivity", "Unregistered song completion broadcast receiver")
         } catch (e: Exception) {
             Log.e("MainActivity", "Error unregistering receiver: ${e.message}")
+        }
+    }
+
+    private fun setupListPadding() {
+        // Observe mini player visibility changes
+        binding.miniPlayerContainer.viewTreeObserver.addOnGlobalLayoutListener {
+            val miniPlayerHeight = if (binding.miniPlayerContainer.visibility == View.VISIBLE) {
+                binding.miniPlayerContainer.height
+            } else {
+                0
+            }
+
+            // Broadcast the padding value to fragments
+            val intent = Intent("com.example.purrytify.UPDATE_BOTTOM_PADDING")
+            intent.putExtra("padding", miniPlayerHeight)
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         }
     }
 

@@ -18,6 +18,11 @@ import com.example.purrytify.databinding.FragmentLikedSongsBinding
 import com.example.purrytify.ui.adapter.SongAdapter
 import com.example.purrytify.ui.player.MusicPlayerViewModel
 import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class LikedSongsFragment : Fragment() {
 
@@ -27,6 +32,19 @@ class LikedSongsFragment : Fragment() {
     private lateinit var songAdapter: SongAdapter
     private var currentSearchQuery: String = ""
     private var originalSongs: List<Song> = emptyList()
+
+
+    private val paddingReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val padding = intent?.getIntExtra("padding", 0) ?: 0
+            binding.recyclerViewLikedSongs.setPadding(
+                binding.recyclerViewLikedSongs.paddingLeft,
+                binding.recyclerViewLikedSongs.paddingTop,
+                binding.recyclerViewLikedSongs.paddingRight,
+                padding
+            )
+        }
+    }
 
     private val viewModel: LibraryViewModel by viewModels {
         LibraryViewModelFactory(requireActivity().application, requireContext().applicationContext)
@@ -56,6 +74,11 @@ class LikedSongsFragment : Fragment() {
 
         setupRecyclerView()
         observeViewModel()
+
+        // Register for padding updates
+        val filter = IntentFilter("com.example.purrytify.UPDATE_BOTTOM_PADDING")
+        LocalBroadcastManager.getInstance(requireContext())
+            .registerReceiver(paddingReceiver, filter)
     }
 
     private fun setupRecyclerView() {
@@ -156,6 +179,14 @@ class LikedSongsFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        // Unregister receiver
+        try {
+            LocalBroadcastManager.getInstance(requireContext())
+                .unregisterReceiver(paddingReceiver)
+        } catch (e: Exception) {
+            // Handle case where receiver wasn't registered
+        }
+
         super.onDestroyView()
         _binding = null
     }
