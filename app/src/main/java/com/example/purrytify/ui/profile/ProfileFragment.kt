@@ -41,13 +41,30 @@ class ProfileFragment : Fragment() {
 
     private var snackbar: Snackbar? = null
 
+    // Reference to the splash screen view
+    private lateinit var loadingView: View
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentProfileBinding.inflate(inflater, container, false)
-        return binding.root
+
+        // Get the root view as a frame layout
+        val rootView = FrameLayout(requireContext())
+
+        // Add the main content view to the root
+        rootView.addView(binding.root)
+
+        // Inflate and add the splash screen on top
+        loadingView = inflater.inflate(R.layout.splash, rootView, false)
+        rootView.addView(loadingView)
+
+        // Initially show loading
+        loadingView.visibility = View.VISIBLE
+
+        return rootView
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -59,10 +76,16 @@ class ProfileFragment : Fragment() {
 
         viewModel = ViewModelProvider(this, factory)[ProfileViewModel::class.java]
 
+        // Initially hide all profile content since loading is shown
+        hideProfileContent()
+
         observeProfile()
         observeNetworkStatus()
         setupLogoutButton()
         observeLogoutEvent()
+
+        // Trigger loading the profile
+        viewModel.loadUserProfile()
     }
 
 
@@ -72,9 +95,13 @@ class ProfileFragment : Fragment() {
         viewModel.profileState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is ProfileState.Loading -> {
-                    // Belum ada implementasi untuk saat milestone ini
+                    // Show loading screen
+                    showLoading(true)
                 }
                 is ProfileState.Success -> {
+                    // Hide loading screen
+                    showLoading(false)
+
                     val user = state.profile
                     binding.tvUsername.text = user.username
                     binding.tvLocation.text = user.location
@@ -90,6 +117,8 @@ class ProfileFragment : Fragment() {
                         .into(binding.ivProfile)
                 }
                 is ProfileState.Error -> {
+                    // Hide loading screen
+                    showLoading(false)
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -97,6 +126,56 @@ class ProfileFragment : Fragment() {
         viewModel.likedCount.observe(viewLifecycleOwner) { likedCount ->
             binding.tvLikedCount.text = "$likedCount"
         }
+
+        // Force loading state immediately to show splash screen
+        if (viewModel.profileState.value !is ProfileState.Success) {
+            showLoading(true)
+        }
+    }
+
+    /**
+     * Shows or hides the loading screen
+     */
+    private fun showLoading(isLoading: Boolean) {
+        if (isLoading) {
+            // Show loading screen
+            loadingView.visibility = View.VISIBLE
+            // Hide content
+            hideProfileContent()
+        } else {
+            // Hide loading screen
+            loadingView.visibility = View.GONE
+            // Show content
+            showProfileContent()
+        }
+    }
+
+    /**
+     * Hide all profile content elements
+     */
+    private fun hideProfileContent() {
+        binding.ivProfile.visibility = View.GONE
+        binding.tvUsername.visibility = View.GONE
+        binding.tvLocation.visibility = View.GONE
+        binding.tvSongsCount.visibility = View.GONE
+        binding.tvListenedCount.visibility = View.GONE
+        binding.tvLikedCount.visibility = View.GONE
+        binding.btnLogout.visibility = View.GONE
+        binding.btnEditProfileMain.visibility = View.GONE
+    }
+
+    /**
+     * Show all profile content elements
+     */
+    private fun showProfileContent() {
+        binding.ivProfile.visibility = View.VISIBLE
+        binding.tvUsername.visibility = View.VISIBLE
+        binding.tvLocation.visibility = View.VISIBLE
+        binding.tvSongsCount.visibility = View.VISIBLE
+        binding.tvListenedCount.visibility = View.VISIBLE
+        binding.tvLikedCount.visibility = View.VISIBLE
+        binding.btnLogout.visibility = View.VISIBLE
+        binding.btnEditProfileMain.visibility = View.VISIBLE
     }
 
     private fun observeNetworkStatus() {
