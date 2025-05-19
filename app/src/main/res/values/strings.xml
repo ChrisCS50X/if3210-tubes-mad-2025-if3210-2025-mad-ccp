@@ -20,5 +20,14 @@
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
     <string name="add_to_queue">Add to Queue</string>
+    <string name="share">Share Song</string>
     <string name="logout">Logout</string>
+    <string name="share_song_via">Share song via</string>
+    <string name="shared_song_message">Check out this song on Purrytify</string>
+    <string name="share_qr_code">Share QR Code</string>
+    <string name="qr_code_image">QR Code</string>
+    <string name="song_info_placeholder">Song Title - Artist</string>
+    <string name="cancel">Cancel</string>
+    <string name="share_as_qr">Share as QR Code</string>
+    <string name="share_as_link">Share as Link</string>
 </resources>

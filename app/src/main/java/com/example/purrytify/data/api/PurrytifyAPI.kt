@@ -72,4 +72,16 @@ interface PurrytifyAPI {
         @Header("Authorization") token: String,
         @Path("country_code") countryCode: String
     ): List<ChartSong>
+    
+    /**
+     * Get details of a specific song by ID
+     * @param token JWT token for authorization (format: "Bearer token")
+     * @param songId The ID of the song to retrieve
+     * @return Song details
+     */
+    @GET("/api/songs/{song_id}")
+    suspend fun getSongById(
+        @Header("Authorization") token: String,
+        @Path("song_id") songId: Long
+    ): ChartSong
 }
