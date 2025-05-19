@@ -59,6 +59,20 @@
     </LinearLayout>
 
     <ImageButton
+        android:id="@+id/btnMiniShare"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@android:color/transparent"
+        android:src="@drawable/ic_share"
+        android:scaleType="centerInside"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="5dp"
+        android:contentDescription="Share song"
+        app:layout_constraintEnd_toStartOf="@id/btnAddLiked"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/miniSeekBar" />
+
+    <ImageButton
         android:id="@+id/btnAddLiked"
         android:layout_width="40dp"
         android:layout_height="40dp"

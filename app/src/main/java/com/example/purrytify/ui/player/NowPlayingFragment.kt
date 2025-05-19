@@ -24,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.example.purrytify.utils.BackgroundColorProvider
+import com.example.purrytify.utils.SharingUtils
 import kotlinx.coroutines.launch
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.purrytify.service.DownloadManager
@@ -135,6 +136,16 @@ class NowPlayingFragment : Fragment() {
 
         binding.btnBack.setOnClickListener {
             findNavController().navigateUp()
+        }
+        
+        binding.btnShare.setOnClickListener {
+            musicPlayerViewModel.currentSong.value?.let { song ->
+                if (SharingUtils.canShareSong(song)) {
+                    SharingUtils.showShareOptions(parentFragmentManager, song)
+                } else {
+                    Toast.makeText(requireContext(), "Only server songs can be shared", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         binding.btnFavorite.setOnClickListener {
