@@ -1,15 +1,21 @@
 package com.example.purrytify.data.api
 
+import com.example.purrytify.data.model.ApiResponse
 import com.example.purrytify.data.model.ChartSong
+import com.example.purrytify.data.model.EditProfile
 import com.example.purrytify.data.model.LoginRequest
 import com.example.purrytify.data.model.LoginResponse
 import com.example.purrytify.data.model.UserProfile
 import com.example.purrytify.data.model.RefreshTokenRequest
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Multipart
+import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 
 /**
@@ -72,4 +78,18 @@ interface PurrytifyAPI {
         @Header("Authorization") token: String,
         @Path("country_code") countryCode: String
     ): List<ChartSong>
+
+    /**
+     * Update profile user
+     * NOTE PENTING : Perlu token untuk authorization
+     * @param token JWT token dari user yang login (format: "Bearer token")
+     * @param parts List of MultipartBody.Part untuk data yang diunggah
+     * @return ApiResponse berisi UserProfile yang diperbarui
+     */
+    @Multipart
+    @PATCH("/api/profile")
+    suspend fun updateProfile(
+        @Header("Authorization") token: String,
+        @Part parts: List<MultipartBody.Part>
+    ): Response<ApiResponse<EditProfile>>
 }
