@@ -27,7 +27,9 @@ import android.content.Intent
 import androidx.appcompat.app.AlertDialog
 import com.example.purrytify.R
 import com.example.purrytify.data.local.AppDatabase
+import com.example.purrytify.data.model.EditProfile
 import com.example.purrytify.data.repository.SongRepository
+import com.example.purrytify.ui.editprofile.EditProfileDialogFragment
 import com.example.purrytify.ui.login.LoginActivity
 import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
 
@@ -82,6 +84,7 @@ class ProfileFragment : Fragment() {
         observeProfile()
         observeNetworkStatus()
         setupLogoutButton()
+        setupEditProfileButton()
         observeLogoutEvent()
 
         // Trigger loading the profile
@@ -211,6 +214,36 @@ class ProfileFragment : Fragment() {
     private fun setupLogoutButton() {
         binding.btnLogout.setOnClickListener {
             showLogoutConfirmationDialog()
+        }
+    }
+
+    private fun setupEditProfileButton() {
+        binding.btnEditProfileMain.setOnClickListener {
+            showEditProfileDialog()
+        }
+    }
+
+    private fun showEditProfileDialog() {
+        val currentUserProfile = viewModel.profileState.value
+        if (currentUserProfile is ProfileState.Success) {
+            // Create EditProfile object from current user data
+            val editableProfile = EditProfile(
+                username = currentUserProfile.profile.username,
+                location = currentUserProfile.profile.location,
+                profilePhoto = currentUserProfile.profile.profilePhoto
+            )
+
+            // Create and show the edit profile dialog
+            val editProfileDialog = EditProfileDialogFragment.newInstance(editableProfile)
+
+            // Set callback to refresh profile when dialog is dismissed after successful update
+            editProfileDialog.onProfileUpdated = {
+                viewModel.loadUserProfile()
+            }
+
+            editProfileDialog.show(childFragmentManager, "EditProfileDialog")
+        } else {
+            Toast.makeText(requireContext(), "Unable to edit profile at this time", Toast.LENGTH_SHORT).show()
         }
     }
 

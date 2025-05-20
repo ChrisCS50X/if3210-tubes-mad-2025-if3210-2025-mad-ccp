@@ -10,6 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.example.purrytify.utils.executeWithTokenRefresh
 import android.util.Log
+import com.example.purrytify.data.model.ApiResponse
+import com.example.purrytify.data.model.EditProfile
+import okhttp3.MultipartBody
 
 /**
  * Repository untuk managemen data user dan autentikasi.
@@ -57,6 +60,53 @@ class UserRepository(private val tokenManager: TokenManager) {
         return executeWithTokenRefresh(this) {
             val token = tokenManager.getToken()!!
             apiService.getUserProfile("Bearer $token")
+        }
+    }
+
+    /**
+     * Update profile user dengan data baru.
+     * Pake helper executeWithTokenRefresh supaya otomatis refresh kalo token expired.
+     */
+    suspend fun updateProfile(parts: List<MultipartBody.Part>): Result<ApiResponse<EditProfile>> {
+        if (!tokenManager.isLoggedIn()) {
+            return Result.failure(IllegalStateException("Not logged in"))
+        }
+
+        // Logging parts
+        parts.forEachIndexed { index, part ->
+            val fieldName = part.headers?.get("Content-Disposition")
+                ?.substringAfter("name=\"")
+                ?.substringBefore("\"") ?: "Unknown Field"
+            val contentType = part.body.contentType()?.toString() ?: "Unknown Content Type"
+            val contentLength = part.body.contentLength()
+            Log.d("UpdateProfile", "Part[$index] - Field: $fieldName, ContentType: $contentType, ContentLength: $contentLength")
+
+            // Log konten kecil
+            if (contentLength < 1024 * 1024) {
+                val buffer = okio.Buffer()
+                part.body.writeTo(buffer)
+                Log.d("UpdateProfile", "Part[$index] - Content: ${buffer.readUtf8()}")
+            } else {
+                Log.d("UpdateProfile", "Part[$index] - Content is too large to log.")
+            }
+        }
+
+        return executeWithTokenRefresh(this) {
+            val token = "Bearer ${tokenManager.getToken()!!}"
+            val response = apiService.updateProfile(token, parts)
+
+            // Periksa apakah response sukses (kode 2xx)
+            if (response.isSuccessful) {
+                response.body() ?: throw Exception("Empty response body")
+            } else {
+                val errorBody = response.errorBody()?.string()
+
+                if (errorBody?.contains("Profile updated successfully") == true) {
+                    ApiResponse(success = true, message = "Profile updated successfully", data = null)
+                } else {
+                    throw Exception("Failed to update profile: $errorBody")
+                }
+            }
         }
     }
 
