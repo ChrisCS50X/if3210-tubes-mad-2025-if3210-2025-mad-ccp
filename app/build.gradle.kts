@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     id("androidx.navigation.safeargs.kotlin")
     id("kotlin-kapt")
+    id("kotlin-parcelize")
 }
 
 android {
@@ -59,6 +60,8 @@ dependencies {
     implementation("io.coil-kt:coil:2.4.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation ("androidx.lifecycle:lifecycle-service:2.6.2")
+    implementation(libs.play.services.location)
+    implementation(libs.play.services.maps)
     kapt("com.github.bumptech.glide:compiler:4.16.0")
     
     // Color Exraction
