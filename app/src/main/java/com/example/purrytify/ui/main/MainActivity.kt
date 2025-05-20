@@ -12,6 +12,7 @@ import android.os.Build
 import android.widget.Toast
 import com.example.purrytify.service.TokenRefreshManager
 import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import android.view.View
 import com.example.purrytify.data.local.TokenManager
@@ -28,6 +29,8 @@ import com.example.purrytify.NavGraphDirections
 import com.example.purrytify.ui.player.NowPlayingFragment
 import com.example.purrytify.utils.ColorUtils
 import com.example.purrytify.utils.BackgroundColorProvider
+import com.example.purrytify.utils.SharingUtils
+import androidx.navigation.findNavController
 
 import androidx.activity.viewModels
 import androidx.lifecycle.ViewModelProvider
@@ -42,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var tokenRefreshManager: TokenRefreshManager
     private lateinit var musicPlayerViewModel: MusicPlayerViewModel
+    lateinit var database: AppDatabase
 
     private val songCompletionReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
@@ -58,6 +62,17 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         verifyTokenAndNavigate()
+        
+        // Handle deep links that launched the app
+        if (intent?.data != null) {
+            handleDeepLink(intent)
+        }
+    }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleDeepLink(intent)
     }
 
     private fun verifyTokenAndNavigate() {
@@ -224,7 +239,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupMusicPlayer() {
-        val database = AppDatabase.getInstance(this)
+        database = AppDatabase.getInstance(this)
         val repository = SongRepository(database.songDao(), applicationContext)
         val factory = MusicPlayerViewModelFactory(application, repository)
         musicPlayerViewModel = ViewModelProvider(this, factory)[MusicPlayerViewModel::class.java]
@@ -270,6 +285,16 @@ class MainActivity : AppCompatActivity() {
                         repository.updateLikeStatus(song.id, true)
                         binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_heart_filled)
                     }
+                }
+            }
+        }
+        
+        binding.miniPlayer.btnMiniShare.setOnClickListener {
+            musicPlayerViewModel.currentSong.value?.let { song ->
+                if (SharingUtils.canShareSong(song)) {
+                    SharingUtils.showShareOptions(supportFragmentManager, song)
+                } else {
+                    Toast.makeText(this, "Only server songs can be shared", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -452,6 +477,11 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
     }
+
+    /**
+     * Getter method to safely expose the musicPlayerViewModel to extension functions
+     */
+    fun getMusicPlayerViewModel() = musicPlayerViewModel
 
     companion object {
         private const val NOTIFICATION_PERMISSION_CODE = 101
