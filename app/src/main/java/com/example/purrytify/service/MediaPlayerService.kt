@@ -29,6 +29,14 @@ import com.example.purrytify.data.local.AppDatabase
 import com.example.purrytify.data.repository.SongRepository
 import kotlinx.coroutines.runBlocking
 import androidx.core.net.toUri
+import android.graphics.BitmapFactory
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.PlaybackStateCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.media.app.NotificationCompat.MediaStyle
+import com.bumptech.glide.Glide
+import kotlinx.coroutines.launch
+
 
 /**
  * Service untuk pemutaran musik.
@@ -63,6 +71,8 @@ class MediaPlayerService : LifecycleService() {
     // Handler untuk update progress di main thread
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    private lateinit var notificationManager: NotificationManager
+
     /**
      * Local binder class buat interaksi service dengan activity.
      * Ini biar activity bisa manggil method service secara langsung.
@@ -80,10 +90,12 @@ class MediaPlayerService : LifecycleService() {
         Log.d(TAG, "onCreate: Service created")
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
         setupMediaSession()
         checkAudioSettings()
+        createNotificationChannel()
 
-        // Bikin job buat update progress player secara berkala
         progressUpdateJob = Runnable {
             updateProgress()
             progressUpdateJob?.let {
@@ -108,7 +120,27 @@ class MediaPlayerService : LifecycleService() {
      */
     private fun setupMediaSession() {
         Log.d(TAG, "setupMediaSession: Setting up media session")
+
         mediaSession = MediaSessionCompat(this, "PurrytifyMediaSession").apply {
+            // Set flags for media buttons and transport controls
+            setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
+                    MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS)
+
+            // Set initial PlaybackState
+            setPlaybackState(PlaybackStateCompat.Builder()
+                .setState(PlaybackStateCompat.STATE_PAUSED, 0, 1.0f)
+                .setActions(PlaybackStateCompat.ACTION_PLAY or
+                        PlaybackStateCompat.ACTION_PAUSE or
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                        PlaybackStateCompat.ACTION_STOP)
+                .build()
+            )
+
+            // Set active state
+            isActive = true
+
+            // Set callback for media button events
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
                     Log.d(TAG, "MediaSession callback: onPlay")
@@ -122,10 +154,19 @@ class MediaPlayerService : LifecycleService() {
 
                 override fun onSkipToNext() {
                     Log.d(TAG, "MediaSession callback: onSkipToNext")
+                    playNext()
                 }
 
                 override fun onSkipToPrevious() {
                     Log.d(TAG, "MediaSession callback: onSkipToPrevious")
+                    playPrevious()
+                }
+
+                override fun onStop() {
+                    Log.d(TAG, "MediaSession callback: onStop")
+                    stopPlayback()
+                    stopForeground(true)
+                    stopSelf()
                 }
 
                 override fun onSeekTo(pos: Long) {
@@ -135,6 +176,8 @@ class MediaPlayerService : LifecycleService() {
             })
         }
     }
+
+
 
     /**
      * Ngecek dan mastiin volume suara ga nol.
@@ -685,51 +728,50 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Purrytify Player",
+                NotificationManager.IMPORTANCE_LOW  // Important for media players
+            )
+            channel.description = "Purrytify Media Player Controls"
+            channel.setShowBadge(false)
+            channel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+
+            notificationManager.createNotificationChannel(channel)
+            Log.d(TAG, "createNotificationChannel: Notification channel created")
+        }
+    }
+
     /**
      * Bikin notifikasi player yang tampil saat musik diputar.
      * Termasuk tombol play/pause dan info lagu.
      */
     private fun createNotification(song: Song): Notification {
         Log.d(TAG, "createNotification: Creating notification for ${song.title}")
-        // Create channel only in Android O and above
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Purrytify Player",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            channel.description = "Purrytify Media Player Controls"
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
-            Log.d(TAG, "createNotification: Notification channel created")
+
+        // Create intent for when notification is clicked (opens player UI)
+        val contentIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("OPEN_PLAYER", true)
+            putExtra("SONG_ID", song.id)
         }
 
-        // Create intent for when notification is clicked
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE
+        val contentPendingIntent = PendingIntent.getActivity(
+            this, 0, contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Create notification
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_music_note)
-            .setContentTitle(song.title)
-            .setContentText(song.artist)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-
-        // Add play/pause action
+        // Safely check playback state
         val isCurrentlyPlaying = try {
             mediaPlayer?.isPlaying ?: false
         } catch (e: IllegalStateException) {
             Log.e(TAG, "Error checking isPlaying state in notification", e)
-            _isPlaying.value ?: false // Use LiveData value as fallback
+            _isPlaying.value ?: false  // Use LiveData value as fallback
         }
 
-        Log.d(TAG, "createNotification: Current playback state: isPlaying=$isCurrentlyPlaying")
-
+        // Create action buttons
         val playPauseAction = if (isCurrentlyPlaying) {
             NotificationCompat.Action(
                 R.drawable.ic_pause,
@@ -743,9 +785,69 @@ class MediaPlayerService : LifecycleService() {
                 createActionIntent(ACTION_PLAY)
             )
         }
-        builder.addAction(playPauseAction)
 
-        Log.d(TAG, "createNotification: Notification built successfully")
+        val previousAction = NotificationCompat.Action(
+            R.drawable.ic_previous,
+            "Previous",
+            createActionIntent(ACTION_PREVIOUS)
+        )
+
+        val nextAction = NotificationCompat.Action(
+            R.drawable.ic_next,
+            "Next",
+            createActionIntent(ACTION_NEXT)
+        )
+
+        val stopAction = NotificationCompat.Action(
+            R.drawable.ic_close,
+            "Stop",
+            createActionIntent(ACTION_STOP)
+        )
+
+        // Get album art for large icon
+        var largeIcon = BitmapFactory.decodeResource(resources, R.drawable.placeholder_album)
+
+        try {
+            if (!song.coverUrl.isNullOrEmpty()) {
+                // Try to load the album art synchronously for notification
+                val bitmap = Glide.with(applicationContext)
+                    .asBitmap()
+                    .load(song.coverUrl)
+                    .submit(144, 144)
+                    .get()
+
+                if (bitmap != null) {
+                    largeIcon = bitmap
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading album art for notification", e)
+        }
+
+        // Build the enhanced notification
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_music_note)  // App logo
+            .setLargeIcon(largeIcon)  // Album art
+            .setContentTitle(song.title)
+            .setContentText(song.artist)
+            .setContentIntent(contentPendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)  // Show on lock screen
+            .setOngoing(true)  // Can't be swiped away while playing
+            .setDeleteIntent(createActionIntent(ACTION_STOP))  // Called when swiped away
+            .setStyle(MediaStyle()
+                .setMediaSession(mediaSession?.sessionToken)
+                .setShowActionsInCompactView(0, 1, 2)  // Show prev, play/pause, next in compact view
+            )
+            .setShowWhen(false)  // Don't show timestamp
+
+        // Add all action buttons
+        builder.addAction(previousAction)
+        builder.addAction(playPauseAction)
+        builder.addAction(nextAction)
+        builder.addAction(stopAction)
+
+        Log.d(TAG, "createNotification: Enhanced notification built successfully")
         return builder.build()
     }
 
@@ -757,8 +859,8 @@ class MediaPlayerService : LifecycleService() {
         try {
             Log.d(TAG, "updateNotification: Updating notification")
             _currentSong.value?.let { song ->
-                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.notify(NOTIFICATION_ID, createNotification(song))
+                val notification = createNotification(song)
+                notificationManager.notify(NOTIFICATION_ID, notification)
                 Log.d(TAG, "updateNotification: Notification updated")
             } ?: run {
                 Log.d(TAG, "updateNotification: No current song, skipping notification update")
@@ -776,10 +878,69 @@ class MediaPlayerService : LifecycleService() {
         val intent = Intent(this, MediaPlayerService::class.java).apply {
             this.action = action
         }
+
+        // Use different request codes for different actions
+        val requestCode = when(action) {
+            ACTION_PLAY -> 0
+            ACTION_PAUSE -> 1
+            ACTION_PREVIOUS -> 2
+            ACTION_NEXT -> 3
+            ACTION_STOP -> 4
+            else -> 5
+        }
+
         return PendingIntent.getService(
-            this, 0, intent,
+            this, requestCode, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    fun playPrevious() {
+        _currentSong.value?.let { currentSong ->
+            lifecycleScope.launch {
+                try {
+                    val repository = SongRepository(
+                        AppDatabase.getInstance(applicationContext).songDao(),
+                        applicationContext
+                    )
+
+                    val previousSong = repository.getPreviousSong(currentSong.id)
+                    previousSong?.let {
+                        playSong(it)
+
+                        // Update song stats
+                        repository.updateLastPlayed(it.id)
+                        repository.incrementPlayCount(it.id)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error playing previous song: ${e.message}", e)
+                }
+            }
+        }
+    }
+
+    fun playNext() {
+        _currentSong.value?.let { currentSong ->
+            lifecycleScope.launch {
+                try {
+                    val repository = SongRepository(
+                        AppDatabase.getInstance(applicationContext).songDao(),
+                        applicationContext
+                    )
+
+                    val nextSong = repository.getNextSong(currentSong.id)
+                    nextSong?.let {
+                        playSong(it)
+
+                        // Update song stats
+                        repository.updateLastPlayed(it.id)
+                        repository.incrementPlayCount(it.id)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error playing next song: ${e.message}", e)
+                }
+            }
+        }
     }
 
     fun stopPlayback() {
@@ -800,6 +961,7 @@ class MediaPlayerService : LifecycleService() {
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand: Action=${intent?.action}")
+
         intent?.action?.let { action ->
             when (action) {
                 ACTION_PLAY -> {
@@ -810,8 +972,23 @@ class MediaPlayerService : LifecycleService() {
                     Log.d(TAG, "onStartCommand: Executing ACTION_PAUSE")
                     pause()
                 }
+                ACTION_PREVIOUS -> {
+                    Log.d(TAG, "onStartCommand: Executing ACTION_PREVIOUS")
+                    playPrevious()
+                }
+                ACTION_NEXT -> {
+                    Log.d(TAG, "onStartCommand: Executing ACTION_NEXT")
+                    playNext()
+                }
+                ACTION_STOP -> {
+                    Log.d(TAG, "onStartCommand: Executing ACTION_STOP")
+                    stopPlayback()
+                    stopForeground(true)
+                    stopSelf()
+                }
             }
         }
+
         return super.onStartCommand(intent, flags, startId)
     }
 
@@ -853,5 +1030,8 @@ class MediaPlayerService : LifecycleService() {
 
         const val ACTION_PLAY = "com.example.purrytify.service.ACTION_PLAY"
         const val ACTION_PAUSE = "com.example.purrytify.service.ACTION_PAUSE"
+        const val ACTION_PREVIOUS = "com.example.purrytify.service.ACTION_PREVIOUS"
+        const val ACTION_NEXT = "com.example.purrytify.service.ACTION_NEXT"
+        const val ACTION_STOP = "com.example.purrytify.service.ACTION_STOP"
     }
 }

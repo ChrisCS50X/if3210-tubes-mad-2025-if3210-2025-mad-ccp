@@ -126,6 +126,7 @@ class MainActivity : AppCompatActivity() {
             checkPermissions()
             requestNotificationPermission()
             setupTokenRefresh()
+            handleNotificationOpen()
         }
     }
 
@@ -184,6 +185,33 @@ class MainActivity : AppCompatActivity() {
             View.VISIBLE
         } else {
             View.GONE
+        }
+    }
+
+    private fun handleNotificationOpen() {
+        // Check if we were launched from notification
+        val openPlayer = intent?.getBooleanExtra("OPEN_PLAYER", false) ?: false
+        val songId = intent?.getLongExtra("SONG_ID", -1L) ?: -1L
+
+        if (openPlayer && songId != -1L) {
+            Log.d("MainActivity", "Opening player from notification, songId: $songId")
+
+            lifecycleScope.launch {
+                try {
+                    val repository = SongRepository(
+                        database.songDao(),
+                        this@MainActivity
+                    )
+
+                    val song = repository.getSongById(songId)
+                    if (song != null) {
+                        // Navigate to now playing screen
+                        navigateToNowPlaying(song)
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error handling notification open: ${e.message}", e)
+                }
+            }
         }
     }
 
