@@ -48,7 +48,6 @@ class EditProfileDialogFragment : DialogFragment() {
     private var currentLocation: String? = null
     private var photoUri: Uri? = null
 
-    // Callback function to be called when profile is updated
     var onProfileUpdated: () -> Unit = {}
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
@@ -70,19 +69,16 @@ class EditProfileDialogFragment : DialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Set dialog width to match parent with margins
         dialog?.window?.apply {
             setLayout(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.WRAP_CONTENT
             )
-            // Add horizontal margin
             val params = attributes
             params.width = (resources.displayMetrics.widthPixels * 0.9).toInt()
             attributes = params
         }
 
-        // Initialize ViewModel
         val tokenManager = TokenManager(requireContext().applicationContext)
         val userRepository = UserRepository(tokenManager)
         viewModel = ViewModelProvider(
@@ -90,16 +86,13 @@ class EditProfileDialogFragment : DialogFragment() {
             EditProfileViewModelFactory(userRepository)
         )[EditProfileViewModel::class.java]
 
-        // Initialize location provider
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
 
-        // Load current profile photo
         val currentUser = arguments?.getParcelable<EditProfile>("currentUser")
         currentUser?.let { user ->
             currentLocation = user.location
             binding.etLocation.setText(user.location)
 
-            // Load profile photo with proper error handling
             Glide.with(requireContext())
                 .load("http://34.101.226.132:3000/uploads/profile-picture/${user.profilePhoto}")
                 .placeholder(R.drawable.profile_placeholder)
@@ -112,25 +105,26 @@ class EditProfileDialogFragment : DialogFragment() {
     }
 
     private fun setupClickListeners() {
-        // Photo selection button
         binding.tvSelectPhoto.setOnClickListener {
             showPhotoSelectionOptions()
         }
 
-        // Get location button
         binding.btnGetLocation.setOnClickListener {
             showLocationOptions()
         }
 
-        // Cancel button
         binding.btnCancel.setOnClickListener {
             dismiss()
         }
 
-        // Save button
         binding.btnSave.setOnClickListener {
             saveProfile()
         }
+
+        // Make location field non-editable (read-only)
+        binding.etLocation.isFocusable = false
+        binding.etLocation.isClickable = false
+        binding.etLocation.isCursorVisible = false
     }
 
     @SuppressLint("SetTextI18n")
@@ -138,18 +132,15 @@ class EditProfileDialogFragment : DialogFragment() {
         viewModel.updateState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is UpdateProfileState.Loading -> {
-                    // Show loading state
                     binding.btnSave.isEnabled = false
                     binding.btnSave.text = "Saving..."
                 }
                 is UpdateProfileState.Success -> {
-                    // Show success and dismiss dialog
                     Toast.makeText(requireContext(), "Profile updated successfully", Toast.LENGTH_SHORT).show()
                     onProfileUpdated()
                     dismiss()
                 }
                 is UpdateProfileState.Error -> {
-                    // Show error
                     binding.btnSave.isEnabled = true
                     binding.btnSave.text = "SAVE"
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
@@ -229,15 +220,8 @@ class EditProfileDialogFragment : DialogFragment() {
     }
 
     private fun openMapForLocationSelection() {
-        // Open Google Maps for location selection
-        // Since we need country code, we'll use a placeholder intent that can later be replaced
-        // with a proper Maps intent implementation
-        val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q="))
-        if (mapIntent.resolveActivity(requireActivity().packageManager) != null) {
-            mapPickerLauncher.launch(mapIntent)
-        } else {
-            Toast.makeText(requireContext(), "No map application found", Toast.LENGTH_SHORT).show()
-        }
+        val intent = Intent(requireContext(), MapSelectionActivity::class.java)
+        mapLocationLauncher.launch(intent)
     }
 
     private fun fetchCurrentLocation() {
@@ -252,38 +236,47 @@ class EditProfileDialogFragment : DialogFragment() {
         ) {
             fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
                 location?.let {
-                    getCountryCodeFromLocation(it.latitude, it.longitude)
+                    getAddressFromLocation(it.latitude, it.longitude)
                 } ?: run {
-                    Toast.makeText(requireContext(), "Unable to get location", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Unable to get location. Please try again or enter manually.", Toast.LENGTH_SHORT).show()
                 }
+            }.addOnFailureListener {
+                Toast.makeText(requireContext(), "Error getting location. Please enter manually.", Toast.LENGTH_SHORT).show()
             }
         } else {
             requestLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
-    private fun getCountryCodeFromLocation(latitude: Double, longitude: Double) {
+    private fun getAddressFromLocation(latitude: Double, longitude: Double) {
         try {
             val geocoder = Geocoder(requireContext(), Locale.getDefault())
             val addresses = geocoder.getFromLocation(latitude, longitude, 1)
-            if (!addresses.isNullOrEmpty() && addresses[0].countryCode != null) {
-                val countryCode = addresses[0].countryCode
-                currentLocation = countryCode
-                binding.etLocation.setText(countryCode)
-            } else {
-                Toast.makeText(requireContext(), "Could not determine country", Toast.LENGTH_SHORT).show()
-            }
+            val locationName = addresses?.get(0)?.getAddressLine(0) ?: "Unknown Location"
+
+            currentLocation = locationName
+            binding.etLocation.setText(locationName)
+
+            Toast.makeText(requireContext(), "Location set to: $locationName", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Error getting location: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Error getting location. Try again.", Toast.LENGTH_SHORT).show()
         }
     }
 
+
     private fun saveProfile() {
+        // Get the current text from location field
+        currentLocation = binding.etLocation.text.toString().trim()
+
+        if (currentLocation.isNullOrEmpty()) {
+            Toast.makeText(requireContext(), "Please enter a location", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         viewModel.updateProfile(currentLocation, selectedPhotoFile)
     }
 
     private fun processSelectedImage(uri: Uri) {
-        // Convert URI to File
         val inputStream = requireContext().contentResolver.openInputStream(uri)
         val file = File(requireContext().cacheDir, "profile_photo_${System.currentTimeMillis()}.jpg")
 
@@ -295,13 +288,11 @@ class EditProfileDialogFragment : DialogFragment() {
 
         selectedPhotoFile = file
 
-        // Display the selected image in the UI
         Glide.with(requireContext())
             .load(uri)
             .into(binding.ivEditProfile)
     }
 
-    // Permission request launchers
     private val requestCameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -318,11 +309,10 @@ class EditProfileDialogFragment : DialogFragment() {
         if (isGranted) {
             fetchCurrentLocation()
         } else {
-            Toast.makeText(requireContext(), "Location permission is required", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Location permission denied. You can still use Google Maps to select location.", Toast.LENGTH_LONG).show()
         }
     }
 
-    // Activity result launchers
     private val takePictureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -333,6 +323,56 @@ class EditProfileDialogFragment : DialogFragment() {
         }
     }
 
+    private val mapLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val countryCode = result.data?.getStringExtra("COUNTRY_CODE")
+
+            countryCode?.let { code ->
+                currentLocation = code
+                binding.etLocation.setText(code)
+                Toast.makeText(requireContext(), "Location set to: $code", Toast.LENGTH_SHORT).show()
+            } ?: run {
+                // Fallback to coordinates if country code not available
+                val latitude = result.data?.getDoubleExtra("LATITUDE", 0.0)
+                val longitude = result.data?.getDoubleExtra("LONGITUDE", 0.0)
+                latitude?.let { lat ->
+                    longitude?.let { lon ->
+                        getCountryCodeFromLocation(lat, lon)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun getCountryCodeFromLocation(latitude: Double, longitude: Double) {
+        try {
+            val geocoder = Geocoder(requireContext(), Locale.getDefault())
+
+            Thread {
+                try {
+                    val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+                    val countryCode = addresses?.firstOrNull()?.countryCode ?: "Unknown"
+
+                    requireActivity().runOnUiThread {
+                        currentLocation = countryCode
+                        binding.etLocation.setText(countryCode)
+                        Toast.makeText(requireContext(), "Location set to: $countryCode", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    requireActivity().runOnUiThread {
+                        Toast.makeText(requireContext(), "Error getting country code. Try again.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }.start()
+
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Error getting country code. Try again.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -341,19 +381,6 @@ class EditProfileDialogFragment : DialogFragment() {
             selectedImageUri?.let { uri ->
                 processSelectedImage(uri)
             }
-        }
-    }
-
-    private val mapPickerLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            // In a real implementation, we would get the selected location
-            // For now, we'll use a placeholder implementation
-            // The actual implementation would get the country code from the selected location
-            val countryCode = "ID" // Example country code (Indonesia)
-            currentLocation = countryCode
-            binding.etLocation.setText(countryCode)
         }
     }
 

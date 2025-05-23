@@ -99,6 +99,10 @@ dependencies {
     // Media player
     implementation ("androidx.media:media:1.7.0")
 
+    // Maps Intent
+    implementation ("com.google.android.gms:play-services-maps:18.1.0")
+    implementation ("com.google.android.gms:play-services-location:21.0.1")
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

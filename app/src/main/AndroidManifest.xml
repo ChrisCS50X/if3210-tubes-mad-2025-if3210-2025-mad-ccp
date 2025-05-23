@@ -26,7 +26,9 @@
         android:theme="@style/Theme.Purrytify"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
-        
+        <meta-data
+            android:name="com.google.android.maps.v2.API_KEY"
+            android:value="AIzaSyApR0juRNUoi0A_NBrG0eXN3NpvAN-GZcE" />
         <!-- FileProvider for sharing QR code images -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -68,6 +70,11 @@
                     android:host="song" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ui.editprofile.MapSelectionActivity"
+            android:exported="false"
+            android:label="Select Location" />
 
         <service
             android:name=".service.MediaPlayerService"
