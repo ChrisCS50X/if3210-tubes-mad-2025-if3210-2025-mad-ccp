@@ -26,6 +26,8 @@ import com.example.purrytify.ui.main.MainActivity
 import java.io.IOException
 import android.util.Log
 import com.example.purrytify.data.local.AppDatabase
+import com.example.purrytify.data.local.TokenManager
+import com.example.purrytify.data.repository.AnalyticsRepository
 import com.example.purrytify.data.repository.SongRepository
 import kotlinx.coroutines.runBlocking
 import androidx.core.net.toUri
@@ -50,6 +52,12 @@ class MediaPlayerService : LifecycleService() {
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private var mediaSession: MediaSessionCompat? = null
+    
+    // Analytics tracking
+    private lateinit var analyticsRepository: AnalyticsRepository
+    private lateinit var tokenManager: TokenManager
+    private var playStartTime: Long = 0
+    private var totalPlayTimeInSession: Long = 0
 
     // LiveData untuk dipake ViewModel dan UI
     private val _currentSong = MutableLiveData<Song?>()
@@ -91,6 +99,11 @@ class MediaPlayerService : LifecycleService() {
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        
+        // Initialize analytics tracking
+        val database = AppDatabase.getInstance(applicationContext)
+        analyticsRepository = AnalyticsRepository(database.listeningStatsDao())
+        tokenManager = TokenManager(applicationContext)
 
         setupMediaSession()
         checkAudioSettings()
@@ -295,6 +308,27 @@ class MediaPlayerService : LifecycleService() {
                     Log.d(TAG, "MediaPlayer onCompletion: Playback completed")
                     mainHandler.post {
                         try {
+                            // Record the final segment of listening time
+                            if (playStartTime > 0) {
+                                val currentTime = System.currentTimeMillis()
+                                val duration = currentTime - playStartTime
+                                totalPlayTimeInSession += duration
+                                
+                                // Record the listening session in the database
+                                _currentSong.value?.let { song ->
+                                    val userId = tokenManager.getEmail()
+                                    if (!userId.isNullOrEmpty()) {
+                                        lifecycleScope.launch {
+                                            analyticsRepository.recordSongListening(userId, song, duration)
+                                            Log.d(TAG, "onCompletion: Recorded ${duration}ms of listening time for ${song.title}")
+                                        }
+                                    }
+                                }
+                                
+                                // Reset the start time
+                                playStartTime = 0
+                            }
+                            
                             // Update playing status
                             _isPlaying.postValue(false)
 
@@ -354,6 +388,9 @@ class MediaPlayerService : LifecycleService() {
                                 // Local files can start playing immediately
                                 start()
                                 _isPlaying.postValue(true)
+                                // Start tracking playback time for analytics
+                                playStartTime = System.currentTimeMillis()
+                                Log.d(TAG, "Local file: Started tracking playback time at $playStartTime")
                                 startProgressUpdates()
                                 updateNotification()
 
@@ -382,6 +419,9 @@ class MediaPlayerService : LifecycleService() {
                             try {
                                 start()
                                 _isPlaying.postValue(true)
+                                // Start tracking playback time for analytics
+                                playStartTime = System.currentTimeMillis()
+                                Log.d(TAG, "Online content: Started tracking playback time at $playStartTime")
                                 startProgressUpdates()
                                 updateNotification()
                                 Log.d(TAG, "Online content prepared successfully, duration: ${mp.duration}ms")
@@ -482,14 +522,24 @@ class MediaPlayerService : LifecycleService() {
         if (focusGranted) {
             Log.d(TAG, "play: Audio focus granted after $attempts attempts, starting playback")
             try {
-                mediaPlayer?.let { player ->
+                        mediaPlayer?.let { player ->
                     if (!player.isPlaying) {
                         Log.d(TAG, "play: About to call player.start()")
                         player.start()
+                        
+                        // Start tracking playback time for analytics
+                        playStartTime = System.currentTimeMillis()
+                        Log.d(TAG, "play: Started tracking playback time at $playStartTime")
                         Log.d(TAG, "play: player.start() called, isPlaying: ${player.isPlaying}")
                         _isPlaying.postValue(true)
                         startProgressUpdates()
                         updateNotification()
+                    } else {
+                        // If already playing but no tracking has started, start it now
+                        if (playStartTime == 0L) {
+                            playStartTime = System.currentTimeMillis()
+                            Log.d(TAG, "play: Started tracking playback time at $playStartTime for already playing media")
+                        }
                     }
                 }
             } catch (e: IllegalStateException) {
@@ -543,6 +593,30 @@ class MediaPlayerService : LifecycleService() {
                 if (player.isPlaying) {
                     player.pause()
                     Log.d(TAG, "pause: Playback paused")
+                    
+                    // Calculate and record listening time for analytics
+                    if (playStartTime > 0) {
+                        val currentTime = System.currentTimeMillis()
+                        val duration = currentTime - playStartTime
+                        totalPlayTimeInSession += duration
+                        
+                        // Record the listening session in the database
+                        _currentSong.value?.let { song ->
+                            val userId = tokenManager.getEmail()
+                            if (!userId.isNullOrEmpty()) {
+                                lifecycleScope.launch {
+                                    analyticsRepository.recordSongListening(userId, song, duration)
+                                    Log.d(TAG, "pause: Recorded ${duration}ms of listening time for ${song.title}")
+                                }
+                            }
+                        }
+                        
+                        // Reset the start time
+                        playStartTime = 0
+                    } else {
+                        // Not recording analytics since playback just started
+                        Log.d(TAG, "pause: No listening time to record")
+                    }
                 } else {
                     Log.d(TAG, "pause: Player not playing, nothing to pause")
                 }
