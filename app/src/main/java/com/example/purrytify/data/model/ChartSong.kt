@@ -1,7 +1,5 @@
 package com.example.purrytify.data.model
 
-import com.google.gson.annotations.SerializedName
-
 data class ChartSong(
     val id: Long,
     val title: String,
@@ -22,8 +20,7 @@ data class ChartSong(
             val seconds = if (durationParts.size > 1) durationParts[1].toLongOrNull() ?: 0 else 0
             (minutes * 60 + seconds) * 1000
         } catch (e: Exception) {
-            // Default duration if parsing fails
-            3 * 60 * 1000L // 3 minutes
+            3 * 60 * 1000L
         }
 
         return Song(

@@ -26,14 +26,13 @@ class ChartSongsAdapter(
     private val downloadManager: DownloadManager
 ) : RecyclerView.Adapter<ChartSongsAdapter.ChartSongViewHolder>() {
 
-    // Add this map to store observers by position
     private val observers = mutableMapOf<Int, Observer<WorkInfo>>()
 
     inner class ChartSongViewHolder(private val binding: ItemChartSongBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(song: ChartSong, position: Int) {
-            binding.tvRank.text = "#${song.rank}"
+            binding.tvRank.text = song.rank.toString()
             binding.tvSongTitle.text = song.title
             binding.tvArtist.text = song.artist
 
