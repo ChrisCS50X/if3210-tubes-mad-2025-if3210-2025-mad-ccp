@@ -239,7 +239,12 @@ class ProfileFragment : Fragment() {
                 tvTopSong.text = analytics.topSong ?: "-"
                 
                 if (analytics.dayStreakCount > 0 && analytics.dayStreakSong != null) {
-                    tvDayStreak.text = "${analytics.dayStreakSong} (${analytics.dayStreakCount} days)"
+                    val streakText = if (analytics.dayStreakCount == 1) {
+                        "${analytics.dayStreakSong} (1 day - Streak started!)"
+                    } else {
+                        "${analytics.dayStreakSong} (${analytics.dayStreakCount} days)"
+                    }
+                    tvDayStreak.text = streakText
                 } else {
                     tvDayStreak.text = "-"
                 }

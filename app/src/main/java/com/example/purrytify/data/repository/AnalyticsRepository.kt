@@ -134,4 +134,109 @@ class AnalyticsRepository(private val listeningStatsDao: ListeningStatsDao) {
     suspend fun clearUserData(userId: String) {
         listeningStatsDao.deleteAllUserStats(userId)
     }
+    
+    /**
+     * Track consecutive day streaks for songs
+     * This implementation will handle calculating real consecutive day streaks
+     * Single day of listening is also counted as a streak of 1
+     */
+    suspend fun trackConsecutiveDayStreaks(userId: String) {
+        withContext(Dispatchers.IO) {
+            // Get the current month and year
+            val now = LocalDate.now()
+            val currentYear = now.year
+            val currentMonth = now.monthValue
+            val yearStr = currentYear.toString()
+            val monthStr = String.format("%02d", currentMonth)
+            
+            // Get all songs the user has listened to this month
+            val songData = listeningStatsDao.getAllSongListeningDates(userId, yearStr, monthStr)
+            
+            // Process each song to find consecutive day streaks
+            songData.forEach { songListeningDates ->
+                // Parse dates from concatenated string and sort
+                val dates = songListeningDates.getDates()
+                val sortedDates = dates.sorted()
+                
+                if (sortedDates.isEmpty()) return@forEach
+                
+                // Single day listening counts as a streak of 1
+                var currentStreak = 1
+                var maxStreak = 1
+                
+                // If there's only one date, we already have our streak of 1
+                if (sortedDates.size > 1) {
+                    for (i in 1 until sortedDates.size) {
+                        val currentDate = LocalDate.parse(sortedDates[i])
+                        val previousDate = LocalDate.parse(sortedDates[i-1])
+                        
+                        // Check if this is the next consecutive day
+                        if (currentDate.minusDays(1) == previousDate) {
+                            currentStreak++
+                            maxStreak = maxOf(maxStreak, currentStreak)
+                        } else {
+                            // Streak broken, reset counter
+                            currentStreak = 1
+                        }
+                    }
+                }
+                
+                // Store this streak information if needed
+                // This part would depend on how you want to persist streak information
+                // For now, we're just calculating it on the fly
+            }
+        }
+    }
+    
+    /**
+     * Check if a user has listened to music today
+     * @return true if the user has listened to any song today
+     */
+    suspend fun hasListenedToday(userId: String): Boolean {
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+        return withContext(Dispatchers.IO) {
+            val todayStats = listeningStatsDao.getListeningStatsForDay(userId, today)
+            todayStats.isNotEmpty()
+        }
+    }
+    
+    /**
+     * Calculate the current streak for a given song
+     * This counts individual days and returns 1 for a single day
+     */
+    suspend fun getCurrentStreak(userId: String, songId: Long): Int {
+        return withContext(Dispatchers.IO) {
+            val today = LocalDate.now()
+            
+            // Get all listening records for this song, ordered by date (most recent first)
+            val records = listeningStatsDao.getListeningStatsBySongIdOrderedByDate(userId, songId)
+            
+            if (records.isEmpty()) return@withContext 0
+            
+            // Start with a streak of 1 for the most recent day
+            var streak = 1
+            var currentDate = LocalDate.parse(records[0].date)
+            
+            // If the most recent listening is not today or yesterday, streak is only 1
+            if (currentDate != today && currentDate != today.minusDays(1)) {
+                return@withContext 1
+            }
+            
+            // Iterate through records to find consecutive days
+            for (i in 1 until records.size) {
+                val previousDate = LocalDate.parse(records[i].date)
+                
+                // Check if the previous record is the day before
+                if (currentDate.minusDays(1) == previousDate) {
+                    streak++
+                    currentDate = previousDate
+                } else {
+                    // Break in streak
+                    break
+                }
+            }
+            
+            streak
+        }
+    }
 }

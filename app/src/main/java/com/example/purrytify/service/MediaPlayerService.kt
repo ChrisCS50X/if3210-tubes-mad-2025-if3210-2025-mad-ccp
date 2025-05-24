@@ -334,12 +334,16 @@ class MediaPlayerService : LifecycleService() {
 
                             // Check for repeat mode
                             val repeatModeIntent = Intent("com.example.purrytify.CHECK_REPEAT_MODE")
+                            // Set package to make it explicit
+                            repeatModeIntent.setPackage(applicationContext.packageName)
                             LocalBroadcastManager.getInstance(applicationContext)
                                 .sendBroadcast(repeatModeIntent)
 
                             // Use LocalBroadcastManager for safer broadcast
                             try {
                                 val intent = Intent("com.example.purrytify.PLAY_NEXT")
+                                // Set package to make it explicit
+                                intent.setPackage(applicationContext.packageName)
                                 LocalBroadcastManager.getInstance(applicationContext)
                                     .sendBroadcast(intent)
                                 Log.d(TAG, "MediaPlayer onCompletion: Local broadcast sent to play next song")

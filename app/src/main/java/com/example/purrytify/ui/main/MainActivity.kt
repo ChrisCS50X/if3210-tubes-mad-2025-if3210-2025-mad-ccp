@@ -497,6 +497,7 @@ class MainActivity : AppCompatActivity() {
 
             // Broadcast the padding value to fragments
             val intent = Intent("com.example.purrytify.UPDATE_BOTTOM_PADDING")
+            intent.setPackage(applicationContext.packageName)
             intent.putExtra("padding", miniPlayerHeight)
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         }
