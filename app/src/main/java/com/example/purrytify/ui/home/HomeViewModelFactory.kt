@@ -20,7 +20,7 @@ class HomeViewModelFactory(
                 songRepository,
                 context,
                 UserRepository(tokenManager),
-                ChartRepository(tokenManager)
+                ChartRepository(tokenManager, songRepository)
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

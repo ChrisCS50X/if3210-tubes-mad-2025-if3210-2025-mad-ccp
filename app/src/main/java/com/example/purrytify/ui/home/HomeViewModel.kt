@@ -75,6 +75,15 @@ class HomeViewModel(
                     )
                 )
 
+                chartItems.add(
+                    ChartItem(
+                        id = "your_${countryCode}_top_songs",
+                        title = "Top Mixes",
+                        imageResId = com.example.purrytify.R.drawable.your_top_song,
+                        type = "yours"
+                    )
+                )
+
                 _chartItems.value = chartItems
             } catch (e: Exception) {
                 // Handle error

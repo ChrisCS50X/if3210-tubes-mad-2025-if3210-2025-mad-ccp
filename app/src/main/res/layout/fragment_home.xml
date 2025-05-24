@@ -28,7 +28,7 @@
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvCharts"
             android:layout_width="0dp"
-            android:layout_height="150dp"
+            android:layout_height="120dp"
             android:clipToPadding="false"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"

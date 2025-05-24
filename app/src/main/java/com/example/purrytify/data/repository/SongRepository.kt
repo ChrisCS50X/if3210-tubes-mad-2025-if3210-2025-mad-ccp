@@ -242,4 +242,31 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
             entity?.toDomainModel()
         }
     }
+
+    /**
+     * Ambil 5 rekomendasi lagu terbaik berdasarkan kombinasi semua faktor:
+     * - Trending songs (25%): Lagu yang banyak diputar dalam 7 hari terakhir
+     * - User preference (20%): Berdasarkan pola judul lagu yang sering diputar user
+     * - Likes (20%): Lagu yang banyak di-like user lain
+     * - Popularity (25%): Berdasarkan total playCount
+     * - Diversity (10%): Random factor untuk variasi
+     *
+     * @param daysBack berapa hari ke belakang untuk menentukan "trending" (default 7 hari)
+     * @return List maksimal 5 lagu rekomendasi dengan skor tertinggi
+     */
+    suspend fun getSmartRecommendations(daysBack: Int = 7): List<Song> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val userId = tokenManager.getEmail()
+                val sinceTimestamp = System.currentTimeMillis() - (daysBack * 24 * 60 * 60 * 1000L)
+
+                val songEntities = songDao.getSmartRecommendations(userId, sinceTimestamp)
+                songEntities.map { it.toDomainModel() }
+
+            } catch (e: Exception) {
+                Log.e("SongRepository", "Error getting smart recommendations: ${e.message}")
+                emptyList()
+            }
+        }
+    }
 }

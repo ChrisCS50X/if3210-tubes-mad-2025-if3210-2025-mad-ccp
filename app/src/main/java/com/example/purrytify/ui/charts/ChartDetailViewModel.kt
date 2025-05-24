@@ -32,6 +32,7 @@ class ChartDetailViewModel(
                 val result = when (chartType) {
                     "global" -> chartRepository.getGlobalTopSongs()
                     "local" -> chartRepository.getCountryTopSongs(countryCode)
+                    "yours" -> chartRepository.getTopMixes(countryCode)
                     else -> Result.failure(IllegalArgumentException("Invalid chart type"))
                 }
 

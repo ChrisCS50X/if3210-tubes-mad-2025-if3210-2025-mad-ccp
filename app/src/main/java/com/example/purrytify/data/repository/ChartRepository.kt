@@ -1,11 +1,14 @@
 package com.example.purrytify.data.repository
 
+import android.util.Log
 import com.example.purrytify.data.api.NetworkModule
 import com.example.purrytify.data.local.TokenManager
 import com.example.purrytify.data.model.ChartSong
 import com.example.purrytify.utils.executeWithTokenRefresh
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-class ChartRepository(private val tokenManager: TokenManager) {
+class ChartRepository(private val tokenManager: TokenManager, private val songRepository: SongRepository) {
 
     private val apiService = NetworkModule.apiService
 
@@ -27,6 +30,101 @@ class ChartRepository(private val tokenManager: TokenManager) {
             executeWithTokenRefresh<List<ChartSong>>(UserRepository(tokenManager)) {
                 val token = tokenManager.getToken()!!
                 apiService.getCountryTopSongs("Bearer $token", countryCode)
+            }
+        }
+    }
+
+    /**
+     * Get top mixes with smart recommendations:
+     * - Maksimal 5 lagu dari smart recommendations
+     * - Jika kurang dari 5, tambahkan dari Global dan Local songs untuk total 10 lagu
+     * - Rasio: Global songs lebih banyak (3:2) jika perlu tambahan
+     *
+     * @param countryCode kode negara untuk mendapatkan local songs
+     * @return List maksimal 10 lagu dengan kombinasi smart recommendations dan random songs
+     */
+    suspend fun getTopMixes(countryCode: String): Result<List<ChartSong>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // 1. Dapatkan smart recommendations (maksimal 5)
+                val smartRecommendations = songRepository.getSmartRecommendations(7)
+                    .take(5)
+                    .map { song ->
+                        // Convert Song to ChartSong jika diperlukan
+                        ChartSong(
+                            id = song.id,
+                            title = song.title,
+                            artist = song.artist,
+                            artwork = "${song.coverUrl}",
+                            url = "",
+                            duration = "${song.duration}",
+                            country = "",
+                            rank = 0,
+                            createdAt = "",
+                            updatedAt = ""
+                        )
+                    }
+
+                val currentCount = smartRecommendations.size
+                val remainingNeeded = 10 - currentCount
+
+                if (remainingNeeded <= 0) {
+                    // Sudah cukup dari smart recommendations
+                    return@withContext Result.success(smartRecommendations)
+                }
+
+                // 2. Hitung proporsi untuk Global dan Local songs
+                val globalSongsNeeded = (remainingNeeded * 0.6).toInt().coerceAtLeast(1)
+                val localSongsNeeded = remainingNeeded - globalSongsNeeded
+
+                // 3. Ambil Global top songs secara random
+                val globalSongs = try {
+                    getGlobalTopSongs().getOrNull()
+                        ?.shuffled()
+                        ?.take(globalSongsNeeded)
+                        ?: emptyList()
+                } catch (e: Exception) {
+                    Log.e("ChartRepository", "Error getting global songs: ${e.message}")
+                    emptyList()
+                }
+
+                // 4. Ambil Country/Local top songs secara random menggunakan parameter countryCode
+                val localSongs = try {
+                    getCountryTopSongs(countryCode).getOrNull()
+                        ?.shuffled()
+                        ?.take(localSongsNeeded)
+                        ?: emptyList()
+                } catch (e: Exception) {
+                    Log.e("ChartRepository", "Error getting local songs for country $countryCode: ${e.message}")
+                    emptyList()
+                }
+                Log.d("country code", countryCode)
+                Log.d("Local Songs",localSongs.size.toString())
+
+                // 5. Gabungkan semua dan return
+                val finalMix = mutableListOf<ChartSong>().apply {
+                    addAll(smartRecommendations)
+                    addAll(localSongs)
+                    addAll(globalSongs)
+                }.take(10).mapIndexed { index, song ->
+                    song.copy(rank = index + 1)
+                }
+
+
+                Log.i("ChartRepository", "Top mix created for country $countryCode: ${smartRecommendations.size} smart, ${globalSongs.size} global, ${localSongs.size} local")
+
+                Result.success(finalMix.take(10)) // Kembalikan sebagai Result
+
+            } catch (e: Exception) {
+                Log.e("ChartRepository", "Error getting top mixes for country $countryCode: ${e.message}")
+                // Fallback: return global songs jika ada error
+                try {
+                    val fallbackGlobalSongs = getGlobalTopSongs().getOrNull()?.shuffled()?.take(10) ?: emptyList()
+                    Result.success(fallbackGlobalSongs)
+                } catch (fallbackError: Exception) {
+                    Log.e("ChartRepository", "Fallback also failed: ${fallbackError.message}")
+                    Result.failure(fallbackError)
+                }
             }
         }
     }

@@ -48,7 +48,7 @@ class ChartDetailFragment : Fragment() {
     private val args: ChartDetailFragmentArgs by navArgs()
     private val viewModel: ChartDetailViewModel by viewModels {
         ChartDetailViewModelFactory(
-            ChartRepository(TokenManager(requireContext())),
+            ChartRepository(TokenManager(requireContext()), songRepository),
             args.chartType,
             args.countryCode
         )
@@ -101,12 +101,14 @@ class ChartDetailFragment : Fragment() {
         binding.tvChartTitle.text = when (args.chartType) {
             "global" -> "Top 50 Global"
             "local" -> "Top 10 ${args.countryCode}"
+            "yours" -> "Top Mixes"
             else -> "Chart"
         }
 
         val bannerImageResource = when (args.chartType) {
             "global" -> R.drawable.global_chart_cover
             "local" -> R.drawable.local_chart_cover
+            "yours" -> R.drawable.your_top_song
             else -> R.drawable.placeholder_album
         }
 
