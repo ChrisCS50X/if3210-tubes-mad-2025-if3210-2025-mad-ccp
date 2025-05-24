@@ -31,7 +31,6 @@ import com.example.purrytify.utils.ColorUtils
 import com.example.purrytify.utils.BackgroundColorProvider
 import com.example.purrytify.utils.SharingUtils
 import androidx.navigation.findNavController
-
 import androidx.activity.viewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController

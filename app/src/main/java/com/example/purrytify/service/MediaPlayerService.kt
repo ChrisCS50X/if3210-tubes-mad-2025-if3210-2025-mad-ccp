@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -32,12 +33,15 @@ import com.example.purrytify.data.repository.SongRepository
 import kotlinx.coroutines.runBlocking
 import androidx.core.net.toUri
 import android.graphics.BitmapFactory
+import android.os.Looper
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
+
 
 
 /**
@@ -79,6 +83,10 @@ class MediaPlayerService : LifecycleService() {
     // Handler untuk update progress di main thread
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    private val albumArtCache = HashMap<String, Bitmap>()
+
+    private var mediaSessionUpdateJob: Runnable? = null
+
     private lateinit var notificationManager: NotificationManager
 
     /**
@@ -115,6 +123,50 @@ class MediaPlayerService : LifecycleService() {
                 mainHandler.postDelayed(it, 500)
             }
         }
+
+        mediaSessionUpdateJob = Runnable {
+            updateMediaSessionState()
+            mediaSessionUpdateJob?.let {
+                mainHandler.postDelayed(it, 1000) // Update every second
+            }
+        }
+
+        _currentSong.observeForever { song ->
+            Log.d(TAG, "currentSong LiveData changed to: ${song?.title}, updating notification")
+            if (song != null) {
+                // Only update notification if the MediaPlayer is prepared
+                try {
+                    if (mediaPlayer != null) {
+                        updateNotification()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error updating notification on song change: ${e.message}")
+                }
+            }
+        }
+
+        // Add this LiveData observer - critical for notification updates
+        _isPlaying.observeForever { isPlaying ->
+            Log.d(TAG, "isPlaying LiveData changed to: $isPlaying, updating notification")
+            // Only update if we have a song
+            if (_currentSong.value != null) {
+                updateNotification()
+            } else {
+                Log.d(TAG, "isPlaying changed but no current song, skipping notification update")
+            }
+        }
+    }
+
+    // Add this method to start updates
+    private fun startMediaSessionUpdates() {
+        Log.d(TAG, "startMediaSessionUpdates: Starting MediaSession updates")
+        mediaSessionUpdateJob?.let { mainHandler.post(it) }
+    }
+
+    // Add this method to stop updates
+    private fun stopMediaSessionUpdates() {
+        Log.d(TAG, "stopMediaSessionUpdates: Stopping MediaSession updates")
+        mediaSessionUpdateJob?.let { mainHandler.removeCallbacks(it) }
     }
 
     /**
@@ -146,7 +198,8 @@ class MediaPlayerService : LifecycleService() {
                         PlaybackStateCompat.ACTION_PAUSE or
                         PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
                         PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-                        PlaybackStateCompat.ACTION_STOP)
+                        PlaybackStateCompat.ACTION_STOP or
+                        PlaybackStateCompat.ACTION_SEEK_TO)
                 .build()
             )
 
@@ -190,7 +243,116 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    private fun forceSyncMediaSessionProgress() {
+        Log.d(TAG, "forceSyncMediaSessionProgress: Syncing MediaSession position")
 
+        try {
+            val currentPosition = mediaPlayer?.currentPosition ?: 0
+            val duration = mediaPlayer?.duration ?: 0
+
+            // Build a state that explicitly includes position info
+            val stateBuilder = PlaybackStateCompat.Builder()
+                .setState(PlaybackStateCompat.STATE_PLAYING, currentPosition.toLong(), 1.0f)
+                .setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                        PlaybackStateCompat.ACTION_SEEK_TO)
+
+            mediaSession?.setPlaybackState(stateBuilder.build())
+
+            // Update the metadata with duration info
+            _currentSong.value?.let { song ->
+                val metadataBuilder = MediaMetadataCompat.Builder()
+                    .putString(MediaMetadataCompat.METADATA_KEY_TITLE, song.title)
+                    .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, song.artist)
+                    .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration.toLong())
+
+                mediaSession?.setMetadata(metadataBuilder.build())
+            }
+
+            Log.d(TAG, "forceSyncMediaSessionProgress: Position synced to $currentPosition ms")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error syncing MediaSession progress", e)
+        }
+    }
+
+    private fun updateMediaSessionState() {
+        try {
+            if (mediaSession == null) return
+
+            val isPlaying = mediaPlayer?.isPlaying == true
+            val position = getCurrentPosition().toLong()
+            val duration = getDuration().toLong()  // Get duration too
+            val state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+
+            val stateBuilder = PlaybackStateCompat.Builder()
+                .setState(state, position, 1.0f)
+                .setActions(
+                    PlaybackStateCompat.ACTION_PLAY or
+                            PlaybackStateCompat.ACTION_PAUSE or
+                            PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                            PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                            PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                            PlaybackStateCompat.ACTION_STOP or
+                            PlaybackStateCompat.ACTION_SEEK_TO  // Add this!
+                )
+
+            mediaSession?.setPlaybackState(stateBuilder.build())
+
+            // Always update metadata with current position and duration
+            _currentSong.value?.let { song ->
+                val metadataBuilder = MediaMetadataCompat.Builder()
+                    .putString(MediaMetadataCompat.METADATA_KEY_TITLE, song.title)
+                    .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, song.artist)
+                    .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "")
+                    .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
+
+                mediaSession?.setMetadata(metadataBuilder.build())
+            }
+
+            Log.d(TAG, "Updated MediaSession state: playing=$isPlaying, position=$position, duration=$duration")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating MediaSession state", e)
+        }
+    }
+
+    private fun forceInitialSyncWithDelay() {
+        Log.d(TAG, "forceInitialSyncWithDelay: Scheduling initial sync")
+
+        // First immediate sync
+        forceSyncMediaSessionProgress()
+
+        // Then delayed sync after the system has registered the session
+        mainHandler.postDelayed({
+            try {
+                Log.d(TAG, "forceInitialSyncWithDelay: Running delayed sync")
+                forceSyncMediaSessionProgress()
+
+                // Update MediaSession position again with explicit buffering state
+                val stateBuilder = PlaybackStateCompat.Builder()
+                    .setState(
+                        PlaybackStateCompat.STATE_PLAYING,
+                        getCurrentPosition().toLong(),
+                        1.0f
+                    )
+                    .setBufferedPosition(getDuration().toLong())  // This is crucial for some devices
+                    .setActions(
+                        PlaybackStateCompat.ACTION_PLAY or
+                                PlaybackStateCompat.ACTION_PAUSE or
+                                PlaybackStateCompat.ACTION_SEEK_TO or
+                                PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                    )
+                mediaSession?.setPlaybackState(stateBuilder.build())
+
+                // Also update the notification
+                updateNotification()
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in delayed media session sync", e)
+            }
+        }, 500)  // 500ms delay is critical for Android system to initialize
+    }
 
     /**
      * Ngecek dan mastiin volume suara ga nol.
@@ -284,8 +446,14 @@ class MediaPlayerService : LifecycleService() {
             stopMediaPlayer()
 
             // Initialize LiveData values
-            _isPlaying.postValue(false)
-            _currentSong.postValue(song)
+            _currentSong.value = song
+            _isPlaying.value = false
+
+            ensureProperInitialization()
+
+            mediaSession?.isActive = true
+
+            updateNotification()
 
             // Create and prepare new MediaPlayer
             Log.d(TAG, "playSong: Creating new MediaPlayer instance")
@@ -392,6 +560,8 @@ class MediaPlayerService : LifecycleService() {
                                 // Local files can start playing immediately
                                 start()
                                 _isPlaying.postValue(true)
+                                forceInitialSyncWithDelay()
+                                updateMediaSessionState()
                                 // Start tracking playback time for analytics
                                 playStartTime = System.currentTimeMillis()
                                 Log.d(TAG, "Local file: Started tracking playback time at $playStartTime")
@@ -423,6 +593,7 @@ class MediaPlayerService : LifecycleService() {
                             try {
                                 start()
                                 _isPlaying.postValue(true)
+                                forceInitialSyncWithDelay()
                                 // Start tracking playback time for analytics
                                 playStartTime = System.currentTimeMillis()
                                 Log.d(TAG, "Online content: Started tracking playback time at $playStartTime")
@@ -472,6 +643,7 @@ class MediaPlayerService : LifecycleService() {
                         // Start playing immediately
                         start()
                         _isPlaying.postValue(true)
+                        forceInitialSyncWithDelay()
                         startProgressUpdates()
 
                         // Notification creation after successful preparation
@@ -536,7 +708,10 @@ class MediaPlayerService : LifecycleService() {
                         Log.d(TAG, "play: Started tracking playback time at $playStartTime")
                         Log.d(TAG, "play: player.start() called, isPlaying: ${player.isPlaying}")
                         _isPlaying.postValue(true)
+                        forceInitialSyncWithDelay()
                         startProgressUpdates()
+                        startMediaSessionUpdates()
+                        updateMediaSessionState()
                         updateNotification()
                     } else {
                         // If already playing but no tracking has started, start it now
@@ -627,6 +802,8 @@ class MediaPlayerService : LifecycleService() {
             }
             _isPlaying.postValue(false)
             stopProgressUpdates()
+            stopMediaSessionUpdates()
+            updateMediaSessionState()
             updateNotification()
         } catch (e: IllegalStateException) {
             Log.e(TAG, "pause: IllegalStateException", e)
@@ -645,6 +822,7 @@ class MediaPlayerService : LifecycleService() {
             try {
                 player.seekTo(position)
                 _progress.postValue(position)
+                updateMediaSessionState()
             } catch (e: IllegalStateException) {
                 Log.e(TAG, "seekTo: IllegalStateException", e)
             }
@@ -822,6 +1000,66 @@ class MediaPlayerService : LifecycleService() {
         }
     }
 
+    private fun getSafeBitmap(song: Song): Bitmap {
+        return try {
+            val defaultBitmap = BitmapFactory.decodeResource(resources, R.drawable.placeholder_album)
+
+            // Check if we're on the main thread
+            if (Thread.currentThread() == Looper.getMainLooper().thread) {
+                // If on main thread, just return the default and don't try loading
+                Log.d(TAG, "getSafeBitmap: On main thread, using placeholder")
+                return defaultBitmap
+            }
+
+            if (song.coverUrl.isNullOrEmpty()) return defaultBitmap
+
+            // Try to use Glide to load bitmap synchronously
+            try {
+                Glide.with(applicationContext)
+                    .asBitmap()
+                    .load(song.coverUrl)
+                    .submit(144, 144)
+                    .get(3, TimeUnit.SECONDS) ?: defaultBitmap // Add timeout
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load album art: ${e.message}")
+                defaultBitmap
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in getSafeBitmap", e)
+            // Create a simple colored bitmap as absolute fallback
+            Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
+                eraseColor(android.graphics.Color.BLACK)
+            }
+        }
+    }
+
+    private fun ensureProperInitialization() {
+        Log.d(TAG, "ensureProperInitialization: Forcing proper setup of MediaSession")
+
+        if (mediaSession != null) {
+            // First set to paused state
+            val pausedStateBuilder = PlaybackStateCompat.Builder()
+                .setState(PlaybackStateCompat.STATE_PAUSED, 0, 1.0f)
+                .setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
+            mediaSession?.setPlaybackState(pausedStateBuilder.build())
+
+            // Then immediately to playing state
+            val playingStateBuilder = PlaybackStateCompat.Builder()
+                .setState(PlaybackStateCompat.STATE_PLAYING, 0, 1.0f)
+                .setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
+            mediaSession?.setPlaybackState(playingStateBuilder.build())
+
+            // Make sure session is active
+            mediaSession?.isActive = true
+
+            Log.d(TAG, "ensureProperInitialization: MediaSession primed with state cycle")
+        }
+    }
+
     /**
      * Bikin notifikasi player yang tampil saat musik diputar.
      * Termasuk tombol play/pause dan info lagu.
@@ -829,7 +1067,7 @@ class MediaPlayerService : LifecycleService() {
     private fun createNotification(song: Song): Notification {
         Log.d(TAG, "createNotification: Creating notification for ${song.title}")
 
-        // Create intent for when notification is clicked (opens player UI)
+        // Create intent for when notification is clicked
         val contentIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("OPEN_PLAYER", true)
@@ -841,91 +1079,57 @@ class MediaPlayerService : LifecycleService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Safely check playback state
+        // Use a separate method for safe bitmap loading
+        val largeIcon = getSafeBitmap(song)
+
+        // CRITICAL: Get playback state directly from MediaPlayer, not LiveData
+        // LiveData can be delayed or out of sync
         val isCurrentlyPlaying = try {
-            mediaPlayer?.isPlaying ?: false
-        } catch (e: IllegalStateException) {
-            Log.e(TAG, "Error checking isPlaying state in notification", e)
-            _isPlaying.value ?: false  // Use LiveData value as fallback
-        }
-
-        // Create action buttons
-        val playPauseAction = if (isCurrentlyPlaying) {
-            NotificationCompat.Action(
-                R.drawable.ic_pause,
-                "Pause",
-                createActionIntent(ACTION_PAUSE)
-            )
-        } else {
-            NotificationCompat.Action(
-                R.drawable.ic_play,
-                "Play",
-                createActionIntent(ACTION_PLAY)
-            )
-        }
-
-        val previousAction = NotificationCompat.Action(
-            R.drawable.ic_previous,
-            "Previous",
-            createActionIntent(ACTION_PREVIOUS)
-        )
-
-        val nextAction = NotificationCompat.Action(
-            R.drawable.ic_next,
-            "Next",
-            createActionIntent(ACTION_NEXT)
-        )
-
-        val stopAction = NotificationCompat.Action(
-            R.drawable.ic_close,
-            "Stop",
-            createActionIntent(ACTION_STOP)
-        )
-
-        // Get album art for large icon
-        var largeIcon = BitmapFactory.decodeResource(resources, R.drawable.placeholder_album)
-
-        try {
-            if (!song.coverUrl.isNullOrEmpty()) {
-                // Try to load the album art synchronously for notification
-                val bitmap = Glide.with(applicationContext)
-                    .asBitmap()
-                    .load(song.coverUrl)
-                    .submit(144, 144)
-                    .get()
-
-                if (bitmap != null) {
-                    largeIcon = bitmap
-                }
-            }
+            mediaPlayer?.isPlaying == true
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading album art for notification", e)
+            _isPlaying.value ?: false
         }
 
-        // Build the enhanced notification
+        Log.d(TAG, "createNotification: Current playing state: $isCurrentlyPlaying")
+
+        // Create the notification builder
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_music_note)  // App logo
-            .setLargeIcon(largeIcon)  // Album art
+            .setSmallIcon(R.drawable.ic_music_note)
+            .setLargeIcon(largeIcon)
             .setContentTitle(song.title)
             .setContentText(song.artist)
             .setContentIntent(contentPendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)  // Show on lock screen
-            .setOngoing(true)  // Can't be swiped away while playing
-            .setDeleteIntent(createActionIntent(ACTION_STOP))  // Called when swiped away
-            .setStyle(MediaStyle()
-                .setMediaSession(mediaSession?.sessionToken)
-                .setShowActionsInCompactView(0, 1, 2)  // Show prev, play/pause, next in compact view
-            )
-            .setShowWhen(false)  // Don't show timestamp
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(isCurrentlyPlaying)
+            .setAutoCancel(false)
 
-        // Add all action buttons
-        builder.addAction(previousAction)
-        builder.addAction(playPauseAction)
-        builder.addAction(nextAction)
-        builder.addAction(stopAction)
+        // Create MediaStyle with MediaSession token - this integrates with system controls
+        val mediaStyle = MediaStyle().setMediaSession(mediaSession?.sessionToken)
 
-        Log.d(TAG, "createNotification: Enhanced notification built successfully")
+        // Set which button indices to show in compact view (3 buttons max)
+        mediaStyle.setShowActionsInCompactView(0, 1, 2)
+        builder.setStyle(mediaStyle)
+
+        // Add the transport controls
+        val prevPendingIntent = createActionPendingIntent(ACTION_PREVIOUS)
+        builder.addAction(R.drawable.ic_previous, "Previous", prevPendingIntent)
+
+        // Dynamically use Play or Pause based on current state
+        if (isCurrentlyPlaying) {
+            val pausePendingIntent = createActionPendingIntent(ACTION_PAUSE)
+            builder.addAction(R.drawable.ic_pause, "Pause", pausePendingIntent)
+        } else {
+            val playPendingIntent = createActionPendingIntent(ACTION_PLAY)
+            builder.addAction(R.drawable.ic_play, "Play", playPendingIntent)
+        }
+
+        val nextPendingIntent = createActionPendingIntent(ACTION_NEXT)
+        builder.addAction(R.drawable.ic_next, "Next", nextPendingIntent)
+
+        val stopPendingIntent = createActionPendingIntent(ACTION_STOP)
+        builder.addAction(R.drawable.ic_close, "Close", stopPendingIntent)
+
         return builder.build()
     }
 
@@ -935,40 +1139,67 @@ class MediaPlayerService : LifecycleService() {
      */
     private fun updateNotification() {
         try {
-            Log.d(TAG, "updateNotification: Updating notification")
-            _currentSong.value?.let { song ->
-                val notification = createNotification(song)
-                notificationManager.notify(NOTIFICATION_ID, notification)
-                Log.d(TAG, "updateNotification: Notification updated")
-            } ?: run {
-                Log.d(TAG, "updateNotification: No current song, skipping notification update")
+            // Get local reference to avoid null issues between checks
+            val currentSong = _currentSong.value
+
+            Log.d(TAG, "updateNotification: Updating notification, currentSong=${currentSong?.title ?: "null"}")
+
+            if (currentSong != null) {
+                // Create notification on a background thread to avoid Glide issues
+                Thread {
+                    try {
+                        val notification = createNotification(currentSong)
+
+                        // Post back to main thread to update notification
+                        mainHandler.post {
+                            try {
+                                if (this::notificationManager.isInitialized) {
+                                    if (_isPlaying.value == true) {
+                                        startForeground(NOTIFICATION_ID, notification)
+                                    } else {
+                                        notificationManager.notify(NOTIFICATION_ID, notification)
+                                    }
+                                    Log.d(TAG, "Notification updated successfully")
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error posting notification: ${e.message}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error creating notification in thread: ${e.message}")
+                    }
+                }.start()
+            } else {
+                Log.d(TAG, "updateNotification: No current song, skipping notification")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating notification: ${e.message}", e)
+            Log.e(TAG, "Error in updateNotification: ${e.message}", e)
         }
     }
 
     /**
      * Bikin PendingIntent buat action di notifikasi.
      */
-    private fun createActionIntent(action: String): PendingIntent {
-        Log.d(TAG, "createActionIntent: Creating action intent for $action")
+    private fun createActionPendingIntent(action: String): PendingIntent {
         val intent = Intent(this, MediaPlayerService::class.java).apply {
             this.action = action
+            // Add unique timestamp to ensure intent is treated as new
+            putExtra("timestamp", System.currentTimeMillis())
         }
 
-        // Use different request codes for different actions
         val requestCode = when(action) {
-            ACTION_PLAY -> 0
-            ACTION_PAUSE -> 1
-            ACTION_PREVIOUS -> 2
-            ACTION_NEXT -> 3
-            ACTION_STOP -> 4
-            else -> 5
+            ACTION_PLAY -> 1001
+            ACTION_PAUSE -> 1002
+            ACTION_PREVIOUS -> 1003
+            ACTION_NEXT -> 1004
+            ACTION_STOP -> 1005
+            else -> 1000
         }
 
         return PendingIntent.getService(
-            this, requestCode, intent,
+            this,
+            requestCode,
+            intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
@@ -1038,28 +1269,69 @@ class MediaPlayerService : LifecycleService() {
      * Handle intent dari notifikasi player.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onStartCommand: Action=${intent?.action}")
+        // First call super to handle any LifecycleService behavior
+        super.onStartCommand(intent, flags, startId)
 
-        intent?.action?.let { action ->
+        val action = intent?.action
+        Log.d(TAG, "onStartCommand: Action=$action, flags=$flags, startId=$startId")
+
+        // Debug all extras to help understand what's happening
+        intent?.extras?.let { extras ->
+            for (key in extras.keySet()) {
+                Log.d(TAG, "Extra: $key = ${extras.get(key)}")
+            }
+        }
+
+        if (action != null) {
             when (action) {
                 ACTION_PLAY -> {
-                    Log.d(TAG, "onStartCommand: Executing ACTION_PLAY")
-                    play()
+                    Log.d(TAG, "onStartCommand: Handling ACTION_PLAY")
+                    if (mediaPlayer != null) {
+                        try {
+                            // Update MediaSession first
+                            val stateBuilder = PlaybackStateCompat.Builder()
+                                .setState(PlaybackStateCompat.STATE_PLAYING, getCurrentPosition().toLong(), 1.0f)
+                                .setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
+                            mediaSession?.setPlaybackState(stateBuilder.build())
+
+                            // Then handle actual playback
+                            play()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error handling play action", e)
+                        }
+                    }
                 }
                 ACTION_PAUSE -> {
-                    Log.d(TAG, "onStartCommand: Executing ACTION_PAUSE")
-                    pause()
+                    Log.d(TAG, "onStartCommand: Handling ACTION_PAUSE")
+                    if (mediaPlayer != null) {
+                        try {
+                            // Update MediaSession first
+                            val stateBuilder = PlaybackStateCompat.Builder()
+                                .setState(PlaybackStateCompat.STATE_PAUSED, getCurrentPosition().toLong(), 1.0f)
+                                .setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
+                            mediaSession?.setPlaybackState(stateBuilder.build())
+
+                            // Then handle actual playback
+                            pause()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error handling pause action", e)
+                        }
+                    }
                 }
                 ACTION_PREVIOUS -> {
-                    Log.d(TAG, "onStartCommand: Executing ACTION_PREVIOUS")
+                    Log.d(TAG, "onStartCommand: Handling ACTION_PREVIOUS")
                     playPrevious()
                 }
                 ACTION_NEXT -> {
-                    Log.d(TAG, "onStartCommand: Executing ACTION_NEXT")
+                    Log.d(TAG, "onStartCommand: Handling ACTION_NEXT")
                     playNext()
                 }
                 ACTION_STOP -> {
-                    Log.d(TAG, "onStartCommand: Executing ACTION_STOP")
+                    Log.d(TAG, "onStartCommand: Handling ACTION_STOP")
                     stopPlayback()
                     stopForeground(true)
                     stopSelf()
@@ -1067,7 +1339,7 @@ class MediaPlayerService : LifecycleService() {
             }
         }
 
-        return super.onStartCommand(intent, flags, startId)
+        return START_STICKY
     }
 
     /**
