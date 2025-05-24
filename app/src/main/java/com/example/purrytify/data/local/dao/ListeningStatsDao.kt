@@ -17,6 +17,27 @@ interface ListeningStatsDao {
 
     @Query("SELECT * FROM listening_stats WHERE userId = :userId ORDER BY timestamp DESC")
     fun getAllUserListeningStats(userId: String): Flow<List<ListeningStatsEntity>>
+    
+    // Used for tracking consecutive day streaks
+    data class SongListeningDates(val songId: Long, val songTitle: String, val datesString: String) {
+        fun getDates(): List<String> = datesString.split(",").distinct()
+    }
+    
+    @Query("""
+        SELECT songId, songTitle, GROUP_CONCAT(date) as datesString
+        FROM listening_stats
+        WHERE userId = :userId 
+        AND strftime('%Y', date) = :year 
+        AND strftime('%m', date) = :month
+        GROUP BY songId
+    """)
+    suspend fun getAllSongListeningDates(userId: String, year: String, month: String): List<SongListeningDates>
+    
+    @Query("SELECT * FROM listening_stats WHERE userId = :userId AND date = :date")
+    suspend fun getListeningStatsForDay(userId: String, date: String): List<ListeningStatsEntity>
+    
+    @Query("SELECT * FROM listening_stats WHERE userId = :userId AND songId = :songId ORDER BY date DESC")
+    suspend fun getListeningStatsBySongIdOrderedByDate(userId: String, songId: Long): List<ListeningStatsEntity>
 
     @Query("SELECT SUM(listeningDurationMillis) FROM listening_stats WHERE userId = :userId AND strftime('%Y', date) = :year AND strftime('%m', date) = :month")
     fun getTotalListeningTimeForMonth(userId: String, year: String, month: String): Flow<Long?>
@@ -62,7 +83,7 @@ interface ListeningStatsDao {
         AND strftime('%Y', s1.date) = :year 
         AND strftime('%m', s1.date) = :month
         GROUP BY s1.songId
-        HAVING COUNT(DISTINCT s1.date) >= 2
+        HAVING COUNT(DISTINCT s1.date) >= 1
         ORDER BY COUNT(DISTINCT s1.date) DESC
         LIMIT 1
     """)
@@ -109,7 +130,7 @@ interface ListeningStatsDao {
         AND strftime('%Y', s1.date) = :year 
         AND strftime('%m', s1.date) = :month
         GROUP BY s1.songId
-        HAVING COUNT(DISTINCT s1.date) >= 2
+        HAVING COUNT(DISTINCT s1.date) >= 1
         ORDER BY COUNT(DISTINCT s1.date) DESC
     """)
     suspend fun getSongStreaksForMonth(userId: String, year: String, month: String): List<SongWithStreak>

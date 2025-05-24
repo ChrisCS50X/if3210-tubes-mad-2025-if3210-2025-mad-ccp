@@ -56,35 +56,37 @@
         app:layout_constraintEnd_toStartOf="@+id/btn_queue"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/ivAlbumCover"
-        tools:text="Song Title"
-        android:layout_marginEnd="8dp"/>
+        tools:text="Song Title" />
 
 
     <ImageButton
         android:id="@+id/btn_queue"
         android:layout_width="48dp"
         android:layout_height="48dp"
+        android:layout_marginEnd="8dp"
         android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Queue"
         android:padding="12dp"
         android:src="@drawable/ic_queue_music"
-        app:tint="@color/white"
-        android:contentDescription="Queue"
+        app:layout_constraintBottom_toBottomOf="@+id/btnFavorite"
         app:layout_constraintEnd_toStartOf="@+id/btnFavorite"
         app:layout_constraintTop_toTopOf="@+id/btnFavorite"
-        app:layout_constraintBottom_toBottomOf="@+id/btnFavorite"
-        android:layout_marginEnd="8dp" />
+        app:layout_constraintVertical_bias="0.0"
+        app:tint="@color/white" />
 
     <ImageButton
         android:id="@+id/btnFavorite"
         android:layout_width="48dp"
         android:layout_height="48dp"
+        android:layout_marginEnd="60dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_heart_outline"
         android:contentDescription="Favorite song"
         android:scaleType="centerInside"
+        android:src="@drawable/ic_heart_outline"
+        app:layout_constraintBottom_toBottomOf="@+id/tvArtistName"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/tvSongTitle"
-        app:layout_constraintBottom_toBottomOf="@+id/tvArtistName" />
+        app:layout_constraintVertical_bias="1.0" />
 
     <TextView
         android:id="@+id/tvArtistName"

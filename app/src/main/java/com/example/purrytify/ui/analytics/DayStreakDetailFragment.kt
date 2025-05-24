@@ -33,7 +33,7 @@ class DayStreakDetailFragment : BaseAnalyticsDetailFragment() {
         
         binding.tvAnalyticsTitle.text = "Day Streaks"
         binding.tvAnalyticsSubtitle.text = "Your listening streaks for $monthName"
-        binding.tvDataDescription.text = "This chart shows your consistency in listening to the same songs over consecutive days. Higher values indicate longer streaks."
+        binding.tvDataDescription.text = "This chart shows your consistency in listening to the same songs. Even playing a song once counts as a 1-day streak! Listen to the same songs on consecutive days to build longer streaks."
         
         // Create and set up the chart programmatically
         lineChart = LineChart(requireContext())
@@ -108,7 +108,12 @@ class DayStreakDetailFragment : BaseAnalyticsDetailFragment() {
     
     private fun updateDataPointsList(data: List<SongWithStreak>) {
         val dataPoints = data.map { streak ->
-            DataPoint(streak.songTitle, "${streak.streak} days")
+            val streakText = if (streak.streak == 1) {
+                "1 day (Started a streak!)"
+            } else {
+                "${streak.streak} days"
+            }
+            DataPoint(streak.songTitle, streakText)
         }
         
         adapter?.submitList(dataPoints)

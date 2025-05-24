@@ -1,6 +1,7 @@
 package com.example.purrytify.data.local.dao
 
 import androidx.room.*
+import androidx.room.RewriteQueriesToDropUnusedColumns
 import kotlinx.coroutines.flow.Flow
 import com.example.purrytify.data.local.entity.SongEntity
 
@@ -184,6 +185,7 @@ interface SongDao {
     ORDER BY total_score DESC, playCount DESC, RANDOM()
     LIMIT 5
 """)
+    @RewriteQueriesToDropUnusedColumns
     suspend fun getSmartRecommendations(
         userId: String?,
         sinceTimestamp: Long = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000) // 7 hari terakhir
