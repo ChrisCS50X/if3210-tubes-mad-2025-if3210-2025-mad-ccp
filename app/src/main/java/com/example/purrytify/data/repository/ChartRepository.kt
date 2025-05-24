@@ -46,11 +46,11 @@ class ChartRepository(private val tokenManager: TokenManager, private val songRe
     suspend fun getTopMixes(countryCode: String): Result<List<ChartSong>> {
         return withContext(Dispatchers.IO) {
             try {
-                // 1. Dapatkan smart recommendations (maksimal 5)
+                // Dapatkan smart recommendations (maksimal 5)
                 val smartRecommendations = songRepository.getSmartRecommendations(7)
                     .take(5)
                     .map { song ->
-                        // Convert Song to ChartSong jika diperlukan
+                        // Convert Song to ChartSong
                         ChartSong(
                             id = song.id,
                             title = song.title,
@@ -69,29 +69,16 @@ class ChartRepository(private val tokenManager: TokenManager, private val songRe
                 val remainingNeeded = 10 - currentCount
 
                 if (remainingNeeded <= 0) {
-                    // Sudah cukup dari smart recommendations
+                    // Validasi untuk smart recommendations
                     return@withContext Result.success(smartRecommendations)
                 }
 
-                // 2. Hitung proporsi untuk Global dan Local songs
-                val globalSongsNeeded = (remainingNeeded * 0.6).toInt().coerceAtLeast(1)
+                var globalSongsNeeded = (remainingNeeded * 0.6).toInt().coerceAtLeast(1)
                 val localSongsNeeded = remainingNeeded - globalSongsNeeded
 
-                // 3. Ambil Global top songs secara random
-                val globalSongs = try {
-                    getGlobalTopSongs().getOrNull()
-                        ?.shuffled()
-                        ?.take(globalSongsNeeded)
-                        ?: emptyList()
-                } catch (e: Exception) {
-                    Log.e("ChartRepository", "Error getting global songs: ${e.message}")
-                    emptyList()
-                }
-
-                // 4. Ambil Country/Local top songs secara random menggunakan parameter countryCode
                 val localSongs = try {
                     getCountryTopSongs(countryCode).getOrNull()
-                        ?.shuffled()
+                        ?.sortedBy { it.rank }
                         ?.take(localSongsNeeded)
                         ?: emptyList()
                 } catch (e: Exception) {
@@ -101,7 +88,21 @@ class ChartRepository(private val tokenManager: TokenManager, private val songRe
                 Log.d("country code", countryCode)
                 Log.d("Local Songs",localSongs.size.toString())
 
-                // 5. Gabungkan semua dan return
+                if (localSongs.size < localSongsNeeded) {
+                    globalSongsNeeded += (localSongsNeeded - localSongs.size)
+                }
+
+                val globalSongs = try {
+                    getGlobalTopSongs().getOrNull()
+                        ?.sortedBy { it.rank }
+                        ?.take(globalSongsNeeded)
+                        ?: emptyList()
+                } catch (e: Exception) {
+                    Log.e("ChartRepository", "Error getting global songs: ${e.message}")
+                    emptyList()
+                }
+
+                // Gabungkan semua dan return
                 val finalMix = mutableListOf<ChartSong>().apply {
                     addAll(smartRecommendations)
                     addAll(localSongs)
