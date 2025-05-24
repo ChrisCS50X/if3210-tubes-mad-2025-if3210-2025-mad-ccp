@@ -11,7 +11,6 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
-import com.bumptech.glide.Glide
 import com.example.purrytify.R
 import com.example.purrytify.data.local.AppDatabase
 import com.example.purrytify.data.local.TokenManager
@@ -31,8 +30,8 @@ import android.graphics.Color
 import com.example.purrytify.utils.BackgroundColorProvider
 import kotlinx.coroutines.launch
 import android.util.Log
-
-
+import kotlinx.coroutines.delay
+import androidx.appcompat.app.AlertDialog
 
 class ChartDetailFragment : Fragment() {
 
@@ -175,27 +174,111 @@ class ChartDetailFragment : Fragment() {
         binding.btnPlayAll.setOnClickListener {
             viewModel.chartState.value?.let { state ->
                 if (state is ChartState.Success && state.songs.isNotEmpty()) {
-                    val firstSong = state.songs.first().toSong()
+                    // Clear any existing queue first
+                    musicPlayerViewModel.clearQueue()
+
+                    // Get all songs from the chart
+                    val chartSongs = state.songs
+
+                    // Show a loading toast while preparing
+                    Toast.makeText(
+                        requireContext(),
+                        "Loading ${chartSongs.size} songs from ${binding.tvChartTitle.text}...",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    // Play the first song immediately
+                    val firstSong = chartSongs.first().toSong()
                     musicPlayerViewModel.playSong(firstSong)
-                    // Optional: add the rest of the songs to queue
+
+                    // Add the remaining songs to the queue
+                    if (chartSongs.size > 1) {
+                        lifecycleScope.launch {
+                            // Add a small delay to ensure first song starts properly
+                            delay(300)
+
+                            // Add remaining songs to queue
+                            for (i in 1 until chartSongs.size) {
+                                val song = chartSongs[i].toSong()
+                                musicPlayerViewModel.addToQueue(song)
+                            }
+
+                            // Confirm queue completion with a new toast
+                            Toast.makeText(
+                                requireContext(),
+                                "Added ${chartSongs.size - 1} more songs to queue",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                } else {
+                    Toast.makeText(
+                        requireContext(),
+                        "No songs available to play",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
 
         binding.btnDownloadAll.setOnClickListener {
             viewModel.chartState.value?.let { state ->
-                if (state is ChartState.Success) {
-                    for (chartSong in state.songs) {
-                        val song = chartSong.toSong()
-                        lifecycleScope.launch {
-                            if (!songRepository.isDownloaded(song.id)) {
-                                downloadManager.enqueueDownload(song)
+                if (state is ChartState.Success && state.songs.isNotEmpty()) {
+                    // Ask for confirmation before downloading all songs
+                    val songCount = state.songs.size
+                    val alertDialog = AlertDialog.Builder(requireContext())
+                        .setTitle("Download All Songs")
+                        .setMessage("Do you want to download all $songCount songs from ${binding.tvChartTitle.text}?")
+                        .setPositiveButton("Download") { _, _ ->
+                            // Download all songs
+                            var downloadCount = 0
+
+                            for (chartSong in state.songs) {
+                                val song = chartSong.toSong()
+                                lifecycleScope.launch {
+                                    try {
+                                        if (!songRepository.isDownloaded(song.id)) {
+                                            downloadManager.enqueueDownload(song)
+                                            downloadCount++
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "Error downloading song: ${e.message}")
+                                    }
+                                }
                             }
+
+                            Toast.makeText(requireContext(),
+                                "Downloading songs from ${binding.tvChartTitle.text}",
+                                Toast.LENGTH_SHORT).show()
                         }
-                    }
-                    Toast.makeText(requireContext(), "Downloading all songs", Toast.LENGTH_SHORT).show()
+                        .setNegativeButton("Cancel", null)
+                        .create()
+
+                    alertDialog.show()
+                } else {
+                    Toast.makeText(requireContext(), "No songs available to download", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    private fun updatePlayAllButtonState(songCount: Int) {
+        if (songCount > 0) {
+            binding.btnPlayAll.isEnabled = true
+            binding.btnPlayAll.alpha = 1.0f
+
+            // Optional: Show song count on long press
+            binding.btnPlayAll.setOnLongClickListener {
+                Toast.makeText(
+                    requireContext(),
+                    "Play all $songCount songs",
+                    Toast.LENGTH_SHORT
+                ).show()
+                true
+            }
+        } else {
+            binding.btnPlayAll.isEnabled = false
+            binding.btnPlayAll.alpha = 0.5f
         }
     }
 
@@ -248,6 +331,7 @@ class ChartDetailFragment : Fragment() {
                     binding.progressBar.visibility = View.VISIBLE
                     binding.rvChartSongs.visibility = View.GONE
                     binding.tvNoSongs.visibility = View.GONE
+                    updatePlayAllButtonState(0)
                 }
                 is ChartState.Success -> {
                     binding.progressBar.visibility = View.GONE
@@ -256,9 +340,11 @@ class ChartDetailFragment : Fragment() {
                         binding.rvChartSongs.visibility = View.VISIBLE
                         binding.tvNoSongs.visibility = View.GONE
                         adapter.updateSongs(state.songs)
+                        updatePlayAllButtonState(state.songs.size)
                     } else {
                         binding.rvChartSongs.visibility = View.GONE
                         binding.tvNoSongs.visibility = View.VISIBLE
+                        updatePlayAllButtonState(0)
                     }
                 }
                 is ChartState.Error -> {
@@ -266,6 +352,7 @@ class ChartDetailFragment : Fragment() {
                     binding.rvChartSongs.visibility = View.GONE
                     binding.tvNoSongs.visibility = View.VISIBLE
                     binding.tvNoSongs.text = state.message
+                    updatePlayAllButtonState(0)
 
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                 }
