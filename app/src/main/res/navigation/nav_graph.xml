@@ -39,7 +39,20 @@
         android:id="@+id/navigation_profile"
         android:name="com.example.purrytify.ui.profile.ProfileFragment"
         android:label="@string/profile"
-        tools:layout="@layout/fragment_profile" />
+        tools:layout="@layout/fragment_profile">
+        <action
+            android:id="@+id/action_navigation_profile_to_timeListenedDetailFragment"
+            app:destination="@id/navigation_time_listened_detail" />
+        <action
+            android:id="@+id/action_navigation_profile_to_topArtistDetailFragment"
+            app:destination="@id/navigation_top_artist_detail" />
+        <action
+            android:id="@+id/action_navigation_profile_to_topSongDetailFragment"
+            app:destination="@id/navigation_top_song_detail" />
+        <action
+            android:id="@+id/action_navigation_profile_to_dayStreakDetailFragment"
+            app:destination="@id/navigation_day_streak_detail" />
+    </fragment>
 
     <action
         android:id="@+id/action_global_navigation_now_playing"
@@ -75,5 +88,70 @@
             android:id="@+id/action_navigation_chart_detail_to_now_playing"
             app:destination="@id/navigation_now_playing"
             app:launchSingleTop="true" />
+    </fragment>
+    
+    <!-- Analytics Detail Fragments -->
+    <fragment
+        android:id="@+id/navigation_time_listened_detail"
+        android:name="com.example.purrytify.ui.analytics.TimeListenedDetailFragment"
+        android:label="Time Listened Analytics"
+        tools:layout="@layout/fragment_analytics_detail">
+        <argument
+            android:name="userId"
+            app:argType="string" />
+        <argument
+            android:name="year"
+            app:argType="integer" />
+        <argument
+            android:name="month"
+            app:argType="integer" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/navigation_top_artist_detail"
+        android:name="com.example.purrytify.ui.analytics.TopArtistDetailFragment"
+        android:label="Top Artist Analytics"
+        tools:layout="@layout/fragment_analytics_detail">
+        <argument
+            android:name="userId"
+            app:argType="string" />
+        <argument
+            android:name="year"
+            app:argType="integer" />
+        <argument
+            android:name="month"
+            app:argType="integer" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/navigation_top_song_detail"
+        android:name="com.example.purrytify.ui.analytics.TopSongDetailFragment"
+        android:label="Top Song Analytics"
+        tools:layout="@layout/fragment_analytics_detail">
+        <argument
+            android:name="userId"
+            app:argType="string" />
+        <argument
+            android:name="year"
+            app:argType="integer" />
+        <argument
+            android:name="month"
+            app:argType="integer" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/navigation_day_streak_detail"
+        android:name="com.example.purrytify.ui.analytics.DayStreakDetailFragment"
+        android:label="Day Streak Analytics"
+        tools:layout="@layout/fragment_analytics_detail">
+        <argument
+            android:name="userId"
+            app:argType="string" />
+        <argument
+            android:name="year"
+            app:argType="integer" />
+        <argument
+            android:name="month"
+            app:argType="integer" />
     </fragment>
 </navigation>

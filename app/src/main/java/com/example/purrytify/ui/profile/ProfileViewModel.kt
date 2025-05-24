@@ -10,10 +10,15 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.switchMap
-import com.example.purrytify.data.local.AppDatabase
+import com.example.purrytify.data.repository.AnalyticsRepository
 import com.example.purrytify.data.repository.SongRepository
+import com.example.purrytify.ui.analytics.AnalyticsViewModel
 
-class ProfileViewModel(private val userRepository: UserRepository, private val songRepository: SongRepository) : ViewModel() {
+class ProfileViewModel(
+    private val userRepository: UserRepository, 
+    private val songRepository: SongRepository,
+    private val analyticsRepository: AnalyticsRepository
+) : ViewModel() {
 
     private val _profileState = MutableLiveData<ProfileState>()
     val profileState: LiveData<ProfileState> = _profileState
@@ -22,7 +27,9 @@ class ProfileViewModel(private val userRepository: UserRepository, private val s
     private val _likedCount = MutableLiveData<Int>()
     val likedCount: LiveData<Int> get() = _likedCount
     private val _userId = MutableLiveData<String?>()
-
+    
+    // Create an instance of the AnalyticsViewModel
+    val analyticsViewModel = AnalyticsViewModel(analyticsRepository)
 
     fun loadUserProfile() {
         _profileState.value = ProfileState.Loading
@@ -64,15 +71,4 @@ sealed class ProfileState {
     data class Error(val message: String) : ProfileState()
 }
 
-class ProfileViewModelFactory(
-    private val userRepository: UserRepository,
-    private val songRepository: SongRepository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(ProfileViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return ProfileViewModel(userRepository, songRepository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
-}
+// ProfileViewModelFactory moved to its own file

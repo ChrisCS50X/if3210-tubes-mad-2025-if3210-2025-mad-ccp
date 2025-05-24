@@ -5,7 +5,11 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.Spinner
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.fragment.app.Fragment
@@ -24,14 +28,20 @@ import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import android.content.Intent
+import android.os.Environment
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.FileProvider
+import androidx.navigation.fragment.findNavController
 import com.example.purrytify.R
 import com.example.purrytify.data.local.AppDatabase
 import com.example.purrytify.data.model.EditProfile
+import com.example.purrytify.data.repository.AnalyticsRepository
 import com.example.purrytify.data.repository.SongRepository
+import com.example.purrytify.ui.analytics.MonthSpinnerAdapter
 import com.example.purrytify.ui.editprofile.EditProfileDialogFragment
 import com.example.purrytify.ui.login.LoginActivity
 import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
+import java.io.File
 
 class ProfileFragment : Fragment() {
 
@@ -73,8 +83,10 @@ class ProfileFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         val tokenManager = TokenManager(requireContext().applicationContext)
         val userRepository = UserRepository(tokenManager)
-        val songRepository = SongRepository(AppDatabase.getInstance(requireContext()).songDao(), requireContext().applicationContext)
-        val factory = ProfileViewModelFactory(userRepository, songRepository)
+        val appDatabase = AppDatabase.getInstance(requireContext())
+        val songRepository = SongRepository(appDatabase.songDao(), requireContext().applicationContext)
+        val analyticsRepository = AnalyticsRepository(appDatabase.listeningStatsDao())
+        val factory = ProfileViewModelFactory(userRepository, songRepository, analyticsRepository)
 
         viewModel = ViewModelProvider(this, factory)[ProfileViewModel::class.java]
 
@@ -86,6 +98,7 @@ class ProfileFragment : Fragment() {
         setupLogoutButton()
         setupEditProfileButton()
         observeLogoutEvent()
+        setupSoundCapsule()
 
         // Trigger loading the profile
         viewModel.loadUserProfile()
@@ -153,6 +166,171 @@ class ProfileFragment : Fragment() {
         }
     }
 
+    private fun setupSoundCapsule() {
+        val analyticsViewModel = viewModel.analyticsViewModel
+        val soundCapsuleLayout = binding.soundCapsuleLayout
+        
+        // Initialize views using binding directly
+        val spinnerMonth = soundCapsuleLayout.spinnerMonth
+        val tvTimeListened = soundCapsuleLayout.tvTimeListened
+        val tvTopArtist = soundCapsuleLayout.tvTopArtist
+        val tvTopSong = soundCapsuleLayout.tvTopSong
+        val tvDayStreak = soundCapsuleLayout.tvDayStreak
+        val tvNoData = soundCapsuleLayout.tvNoData
+        val dataContainer = soundCapsuleLayout.dataContainer
+        val btnExportData = soundCapsuleLayout.btnExportData
+        
+        // Set up click listeners for analytics items
+        soundCapsuleLayout.timeListenedContainer.setOnClickListener {
+            navigateToAnalyticsDetail("timeListened")
+        }
+        
+        soundCapsuleLayout.topArtistContainer.setOnClickListener {
+            navigateToAnalyticsDetail("topArtist")
+        }
+        
+        soundCapsuleLayout.topSongContainer.setOnClickListener {
+            navigateToAnalyticsDetail("topSong")
+        }
+        
+        soundCapsuleLayout.dayStreakContainer.setOnClickListener {
+            navigateToAnalyticsDetail("dayStreak")
+        }
+        
+        // Set up spinner
+        analyticsViewModel.months.observe(viewLifecycleOwner) { months ->
+            val adapter = MonthSpinnerAdapter(requireContext(), months)
+            spinnerMonth.adapter = adapter
+            
+            // Load data for the current month
+            if (months.isNotEmpty()) {
+                val userId = TokenManager(requireContext()).getEmail()
+                if (!userId.isNullOrEmpty()) {
+                    analyticsViewModel.loadAnalyticsForMonth(userId, months[0])
+                }
+            }
+        }
+        
+        // Handle month selection
+        spinnerMonth.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedMonth = analyticsViewModel.months.value?.get(position)
+                val userId = TokenManager(requireContext()).getEmail()
+                
+                if (selectedMonth != null && !userId.isNullOrEmpty()) {
+                    analyticsViewModel.loadAnalyticsForMonth(userId, selectedMonth)
+                }
+            }
+            
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        
+        // Observe analytics data
+        analyticsViewModel.currentAnalytics.observe(viewLifecycleOwner) { analytics ->
+            if (analytics != null && analytics.hasData()) {
+                // Show data
+                tvNoData.visibility = View.GONE
+                dataContainer.visibility = View.VISIBLE
+                btnExportData.isEnabled = true
+                
+                // Update UI
+                tvTimeListened.text = analytics.getFormattedTimeListened()
+                tvTopArtist.text = analytics.topArtist ?: "-"
+                tvTopSong.text = analytics.topSong ?: "-"
+                
+                if (analytics.dayStreakCount > 0 && analytics.dayStreakSong != null) {
+                    tvDayStreak.text = "${analytics.dayStreakSong} (${analytics.dayStreakCount} days)"
+                } else {
+                    tvDayStreak.text = "-"
+                }
+            } else {
+                // Show no data message
+                tvNoData.visibility = View.VISIBLE
+                dataContainer.visibility = View.GONE
+                btnExportData.isEnabled = false
+            }
+        }
+        
+        // Handle export button
+        btnExportData.setOnClickListener {
+            val userId = TokenManager(requireContext()).getEmail()
+            if (!userId.isNullOrEmpty()) {
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                
+                if (!downloadsDir.exists()) {
+                    downloadsDir.mkdirs()
+                }
+                
+                val file = analyticsViewModel.exportAnalyticsToCsv(userId, downloadsDir)
+                
+                if (file != null) {
+                    shareExportedFile(file)
+                } else {
+                    Toast.makeText(requireContext(), "Error exporting analytics data", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+    
+    private fun shareExportedFile(file: File) {
+        val uri = FileProvider.getUriForFile(
+            requireContext(),
+            "com.example.purrytify.provider",
+            file
+        )
+        
+        val shareIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_STREAM, uri)
+            type = "text/csv"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        
+        startActivity(Intent.createChooser(shareIntent, "Share Analytics Data"))
+    }
+    
+    /**
+     * Navigate to the appropriate analytics detail screen based on the clicked item
+     */
+    private fun navigateToAnalyticsDetail(detailType: String) {
+        val userId = TokenManager(requireContext()).getEmail() ?: return
+        
+        // Get the currently selected month and year
+        val selectedMonthPosition = binding.soundCapsuleLayout.spinnerMonth.selectedItemPosition
+        val selectedMonth = viewModel.analyticsViewModel.months.value?.getOrNull(selectedMonthPosition) ?: return
+        
+        when (detailType) {
+            "timeListened" -> {
+                findNavController().navigate(
+                    ProfileFragmentDirections.actionNavigationProfileToTimeListenedDetailFragment(
+                        userId, selectedMonth.year, selectedMonth.month
+                    )
+                )
+            }
+            "topArtist" -> {
+                findNavController().navigate(
+                    ProfileFragmentDirections.actionNavigationProfileToTopArtistDetailFragment(
+                        userId, selectedMonth.year, selectedMonth.month
+                    )
+                )
+            }
+            "topSong" -> {
+                findNavController().navigate(
+                    ProfileFragmentDirections.actionNavigationProfileToTopSongDetailFragment(
+                        userId, selectedMonth.year, selectedMonth.month
+                    )
+                )
+            }
+            "dayStreak" -> {
+                findNavController().navigate(
+                    ProfileFragmentDirections.actionNavigationProfileToDayStreakDetailFragment(
+                        userId, selectedMonth.year, selectedMonth.month
+                    )
+                )
+            }
+        }
+    }
+
     /**
      * Hide all profile content elements
      */
@@ -165,6 +343,7 @@ class ProfileFragment : Fragment() {
         binding.tvLikedCount.visibility = View.GONE
         binding.btnLogout.visibility = View.GONE
         binding.btnEditProfileMain.visibility = View.GONE
+        binding.soundCapsuleLayout.root.visibility = View.GONE
     }
 
     /**
@@ -179,6 +358,7 @@ class ProfileFragment : Fragment() {
         binding.tvLikedCount.visibility = View.VISIBLE
         binding.btnLogout.visibility = View.VISIBLE
         binding.btnEditProfileMain.visibility = View.VISIBLE
+        binding.soundCapsuleLayout.root.visibility = View.VISIBLE
     }
 
     private fun observeNetworkStatus() {
