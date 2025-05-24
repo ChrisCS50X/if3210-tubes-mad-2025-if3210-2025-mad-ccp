@@ -97,6 +97,7 @@ class NowPlayingFragment : Fragment() {
         setupUI()
         setupControls()
         observeViewModel()
+        observeAudioDevices()
     }
     
     override fun onResume() {
@@ -146,6 +147,10 @@ class NowPlayingFragment : Fragment() {
                     Toast.makeText(requireContext(), "Only server songs can be shared", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+        
+        binding.btnAudioOutput.setOnClickListener {
+            showAudioDeviceSelectionDialog()
         }
 
         binding.btnFavorite.setOnClickListener {
@@ -273,6 +278,9 @@ class NowPlayingFragment : Fragment() {
     }
 
     private fun observeViewModel() {
+        // Observe audio devices
+        observeAudioDevices()
+        
         musicPlayerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
             song?.let {
                 updateSongInfo(it)
@@ -385,6 +393,62 @@ class NowPlayingFragment : Fragment() {
             } catch (e: Exception) {
                 Log.e("NowPlayingFragment", "Error updating download button: ${e.message}")
                 binding.btnDownload.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun showAudioDeviceSelectionDialog() {
+        val dialog = AudioDeviceSelectionDialog.newInstance(musicPlayerViewModel)
+        dialog.show(childFragmentManager, "AudioDeviceSelectionDialog")
+    }
+    
+    private fun observeAudioDevices() {
+        // Observe active audio device changes
+        musicPlayerViewModel.activeAudioDevice.observe(viewLifecycleOwner) { device ->
+            // Update UI when active device changes
+            device?.let { updateAudioDeviceIndicator(it) }
+        }
+        
+        // Observe audio device errors
+        musicPlayerViewModel.audioDeviceError.observe(viewLifecycleOwner) { errorMessage ->
+            errorMessage?.let {
+                Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                musicPlayerViewModel.clearAudioDeviceError()
+            }
+        }
+    }
+    
+    private fun updateAudioDeviceIndicator(device: com.example.purrytify.data.model.AudioDevice) {
+        val activity = activity as? com.example.purrytify.ui.main.MainActivity
+        activity?.let { mainActivity ->
+            // Try to update mini player
+            val audioIndicator = mainActivity.binding.miniPlayer.audioOutputIndicator
+            val deviceIcon = mainActivity.binding.miniPlayer.audioDeviceIcon
+            val deviceName = mainActivity.binding.miniPlayer.audioDeviceName
+            
+            // Make indicator visible
+            audioIndicator.visibility = View.VISIBLE
+            
+            // Set device name
+            deviceName.text = device.name
+            
+            // Set appropriate icon based on device type
+            when (device.type) {
+                com.example.purrytify.data.model.AudioDeviceType.BLUETOOTH -> {
+                    deviceIcon.setImageResource(R.drawable.ic_bluetooth_audio)
+                }
+                com.example.purrytify.data.model.AudioDeviceType.WIRED_HEADSET -> {
+                    deviceIcon.setImageResource(R.drawable.ic_headset)
+                }
+                com.example.purrytify.data.model.AudioDeviceType.INTERNAL_SPEAKER -> {
+                    deviceIcon.setImageResource(R.drawable.ic_speaker)
+                }
+                com.example.purrytify.data.model.AudioDeviceType.USB_AUDIO -> {
+                    deviceIcon.setImageResource(R.drawable.ic_usb_audio)
+                }
+                else -> {
+                    deviceIcon.setImageResource(R.drawable.ic_audio_output)
+                }
             }
         }
     }
