@@ -6,7 +6,7 @@ data class ChartSong(
     val artist: String,
     val artwork: String,
     val url: String,
-    val duration: String,
+    val duration: String, // This is a String in format "mm:ss"
     val country: String,
     val rank: Int,
     val createdAt: String,
@@ -20,7 +20,7 @@ data class ChartSong(
             val seconds = if (durationParts.size > 1) durationParts[1].toLongOrNull() ?: 0 else 0
             (minutes * 60 + seconds) * 1000
         } catch (e: Exception) {
-            3 * 60 * 1000L
+            0L // Default to 0 if parsing fails, or handle error appropriately
         }
 
         return Song(
@@ -30,7 +30,11 @@ data class ChartSong(
             coverUrl = artwork,
             filePath = url,
             duration = durationMs,
-            isLiked = false
+            isLiked = false, // Default value, can be updated later
+            country = country,
+            rank = rank,
+            createdAt = createdAt,
+            updatedAt = updatedAt
         )
     }
 }
