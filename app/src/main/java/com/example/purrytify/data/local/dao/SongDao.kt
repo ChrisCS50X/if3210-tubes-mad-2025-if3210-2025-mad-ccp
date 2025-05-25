@@ -118,14 +118,17 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE id = :id LIMIT 1")
     suspend fun getSongById(id: Long): SongEntity?
 
-    @Query("SELECT COUNT(*) FROM songs WHERE title = :title AND artist = :artist")
-    suspend fun getSongCountByTitleAndArtist(title: String, artist: String): Int
+    @Query("SELECT * FROM songs WHERE id = :id AND userId = :userId LIMIT 1")
+    suspend fun getSongByIdAndUser(id: Long, userId: String?): SongEntity?
+
+    @Query("SELECT COUNT(*) FROM songs WHERE title = :title AND artist = :artist AND userId = :userId")
+    suspend fun getSongCountByTitleArtistAndUser(title: String, artist: String, userId: String?): Int
 
     @Query("UPDATE songs SET filePath = :filePath WHERE id = :id AND userId = :userId")
     suspend fun updateSongFilePath(id: Long, filePath: String, userId: String)
 
-    @Query("SELECT * FROM songs WHERE filePath LIKE '/%' OR filePath LIKE 'file://%' ORDER BY title ASC")
-    fun getDownloadedSongs(): Flow<List<SongEntity>>
+    @Query("SELECT * FROM songs WHERE userId = :userId AND (filePath LIKE '/%' OR filePath LIKE 'file://%' OR filePath LIKE 'content://%') ORDER BY title ASC")
+    fun getDownloadedSongs(userId: String?): Flow<List<SongEntity>>
 
     @Query("""
     WITH user_stats AS (

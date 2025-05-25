@@ -35,6 +35,8 @@ class DownloadManager(private val context: Context) {
         const val NOTIFICATION_COMPLETE_CHANNEL_ID = "download_complete_channel"
         const val NOTIFICATION_ID = 200
 
+        const val KEY_USER_ID = "user_id"
+
         // Worker input data keys
         const val KEY_SONG_ID = "song_id"
         const val KEY_SONG_TITLE = "song_title"
@@ -57,6 +59,9 @@ class DownloadManager(private val context: Context) {
     fun enqueueDownload(song: Song): UUID {
         Log.d(TAG, "Enqueueing download for ${song.title}")
 
+        val tokenManager = com.example.purrytify.data.local.TokenManager(context)
+        val currentUserId = tokenManager.getEmail() ?: ""
+
         // Create input data for worker
         val inputData = Data.Builder()
             .putLong(KEY_SONG_ID, song.id)
@@ -65,6 +70,7 @@ class DownloadManager(private val context: Context) {
             .putString(KEY_SONG_URL, song.filePath)
             .putString(KEY_SONG_COVER_URL, song.coverUrl)
             .putLong(KEY_SONG_DURATION, song.duration)
+            .putString(KEY_USER_ID, currentUserId)
             .build()
 
         // Create download work request
@@ -154,8 +160,9 @@ class DownloadManager(private val context: Context) {
             val songUrl = inputData.getString(KEY_SONG_URL) ?: return Result.failure()
             val songCoverUrl = inputData.getString(KEY_SONG_COVER_URL)
             val songDuration = inputData.getLong(KEY_SONG_DURATION, 0)
+            val downloadUserId = inputData.getString(KEY_USER_ID) ?: ""
 
-            Log.d("DownloadWorker", "Starting download for $songTitle")
+            Log.d("DownloadWorker", "Starting download for $songTitle (user: $downloadUserId)")
 
             // Update notification
             val notification = notificationBuilder
@@ -221,19 +228,37 @@ class DownloadManager(private val context: Context) {
                 // Save to database after successful download
                 val localFilePath = outputFile.absolutePath
 
-                val downloadedSong = Song(
-                    id = songId,
-                    title = songTitle,
-                    artist = songArtist,
-                    coverUrl = songCoverUrl,
-                    filePath = localFilePath,
-                    duration = songDuration,
-                    isLiked = false
-                )
-
-                // Update or insert the song in local database
+                // Save with explicit user ID instead of using repository
                 withContext(Dispatchers.IO) {
-                    songRepository.saveSongFromOnline(downloadedSong)
+                    try {
+                        val songDao = com.example.purrytify.data.local.AppDatabase
+                            .getInstance(applicationContext).songDao()
+
+                        // Check if song exists
+                        val existingSong = songDao.getSongById(songId)
+
+                        if (existingSong != null) {
+                            // Update existing song with explicit user ID
+                            songDao.updateSongFilePath(songId, localFilePath, downloadUserId)
+                            Log.d("DownloadWorker", "Updated existing song with ID $songId for user $downloadUserId")
+                        } else {
+                            // Create new entity with explicit user ID
+                            val songEntity = com.example.purrytify.data.local.entity.SongEntity(
+                                id = songId,
+                                userId = downloadUserId,  // Use the preserved user ID
+                                title = songTitle,
+                                artist = songArtist,
+                                coverUrl = songCoverUrl,
+                                filePath = localFilePath,
+                                duration = songDuration,
+                                isLiked = false
+                            )
+                            songDao.insertSong(songEntity)
+                            Log.d("DownloadWorker", "Inserted new song with ID $songId for user $downloadUserId")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("DownloadWorker", "Error saving download: ${e.message}", e)
+                    }
                 }
 
                 // Show completion notification

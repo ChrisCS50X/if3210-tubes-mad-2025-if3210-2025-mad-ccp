@@ -37,7 +37,7 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
         entities.map { it.toDomainModel() }
     }
 
-    val downloadedSongs = songDao.getDownloadedSongs().map { entities ->
+    val downloadedSongs = songDao.getDownloadedSongs(tokenManager.getEmail()).map { entities ->
         entities.map { it.toDomainModel() }
     }
 
@@ -232,8 +232,11 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
      */
     suspend fun isDownloaded(songId: Long): Boolean {
         return withContext(Dispatchers.IO) {
-            val song = songDao.getSongById(songId)
-            song?.filePath?.startsWith("/") == true || song?.filePath?.startsWith("file://") == true || song?.filePath?.startsWith("content://") == true
+            val userId = tokenManager.getEmail()
+            val song = songDao.getSongByIdAndUser(songId, userId)
+            song?.filePath?.startsWith("/") == true ||
+                    song?.filePath?.startsWith("file://") == true ||
+                    song?.filePath?.startsWith("content://") == true
         }
     }
 
@@ -250,7 +253,8 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
     suspend fun isSongAlreadyDownloaded(title: String, artist: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                val count = songDao.getSongCountByTitleAndArtist(title, artist)
+                val userId = tokenManager.getEmail()
+                val count = songDao.getSongCountByTitleArtistAndUser(title, artist, userId)
                 count > 0
             } catch (e: Exception) {
                 false
