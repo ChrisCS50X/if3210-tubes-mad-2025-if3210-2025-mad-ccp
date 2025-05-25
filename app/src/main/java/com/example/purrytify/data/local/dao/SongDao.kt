@@ -124,6 +124,9 @@ interface SongDao {
     @Query("UPDATE songs SET filePath = :filePath WHERE id = :id AND userId = :userId")
     suspend fun updateSongFilePath(id: Long, filePath: String, userId: String)
 
+    @Query("SELECT * FROM songs WHERE filePath LIKE '/%' OR filePath LIKE 'file://%' ORDER BY title ASC")
+    fun getDownloadedSongs(): Flow<List<SongEntity>>
+
     @Query("""
     WITH user_stats AS (
         SELECT 

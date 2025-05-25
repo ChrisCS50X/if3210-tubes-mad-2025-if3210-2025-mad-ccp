@@ -19,6 +19,7 @@ class LibraryViewModel(application: Application, context: Context) : AndroidView
 
     val allSongs: LiveData<List<Song>>
     val likedSongs: LiveData<List<Song>>
+    val downloadedSongs: LiveData<List<Song>>
 
     init {
         val songDao = AppDatabase.getInstance(application).songDao()
@@ -26,6 +27,7 @@ class LibraryViewModel(application: Application, context: Context) : AndroidView
 
         allSongs = repository.allSongs.asLiveData()
         likedSongs = repository.likedSongs.asLiveData()
+        downloadedSongs = repository.downloadedSongs.asLiveData()
     }
 
     fun deleteSongById(songId: Long) {

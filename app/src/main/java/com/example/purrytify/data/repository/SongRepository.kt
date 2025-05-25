@@ -37,6 +37,10 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
         entities.map { it.toDomainModel() }
     }
 
+    val downloadedSongs = songDao.getDownloadedSongs().map { entities ->
+        entities.map { it.toDomainModel() }
+    }
+
     /**
      * Tambahin counter berapa kali lagu udah diputar.
      */
@@ -247,14 +251,14 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
         return withContext(Dispatchers.IO) {
             try {
                 val count = songDao.getSongCountByTitleAndArtist(title, artist)
-                Log.d("SongRepository", "Song check by title/artist: '$title' by '$artist' = $count")
                 count > 0
             } catch (e: Exception) {
-                Log.e("SongRepository", "Error checking song by title/artist: ${e.message}", e)
                 false
             }
         }
     }
+
+
 
     /**
      * Ambil 5 rekomendasi lagu terbaik berdasarkan kombinasi semua faktor:
