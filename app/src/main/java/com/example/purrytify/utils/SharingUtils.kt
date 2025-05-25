@@ -12,8 +12,8 @@ import com.example.purrytify.ui.dialog.ShareOptionsDialog
  * Utility class for handling song sharing and deep link generation/parsing
  */
 object SharingUtils {
-    private const val SCHEME = "purrytify"
-    private const val HOST_SONG = "song"
+    private const val SCHEME = "purrytify" // Reverted to purrytify
+    private const val HOST_APP = "song" // Reverted to song (acts as host for this scheme)
 
     /**
      * Generate a deep link URI for a song
@@ -23,7 +23,7 @@ object SharingUtils {
     fun createSongDeepLink(songId: Long): Uri {
         return Uri.Builder()
             .scheme(SCHEME)
-            .authority(HOST_SONG)
+            .authority(HOST_APP) // Using "song" as authority/host
             .appendPath(songId.toString())
             .build()
     }
@@ -34,7 +34,11 @@ object SharingUtils {
      * @return The song ID, or null if the URI is not a valid song deep link
      */
     fun extractSongIdFromDeepLink(uri: Uri): Long? {
-        return if (uri.scheme == SCHEME && uri.host == HOST_SONG) {
+        // For purrytify://song/123
+        // scheme = "purrytify"
+        // host (authority) = "song"
+        // pathSegments = ["123"]
+        return if (uri.scheme == SCHEME && uri.host == HOST_APP && uri.pathSegments.size == 1) {
             uri.lastPathSegment?.toLongOrNull()
         } else {
             null
