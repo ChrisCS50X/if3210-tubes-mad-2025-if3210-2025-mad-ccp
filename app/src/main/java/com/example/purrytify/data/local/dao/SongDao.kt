@@ -118,6 +118,9 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE id = :id LIMIT 1")
     suspend fun getSongById(id: Long): SongEntity?
 
+    @Query("SELECT COUNT(*) FROM songs WHERE title = :title AND artist = :artist")
+    suspend fun getSongCountByTitleAndArtist(title: String, artist: String): Int
+
     @Query("UPDATE songs SET filePath = :filePath WHERE id = :id AND userId = :userId")
     suspend fun updateSongFilePath(id: Long, filePath: String, userId: String)
 

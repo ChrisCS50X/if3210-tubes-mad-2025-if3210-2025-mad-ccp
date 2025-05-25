@@ -4,7 +4,6 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.example.purrytify.R
 import com.example.purrytify.databinding.ItemChartBinding
 
 data class ChartItem(

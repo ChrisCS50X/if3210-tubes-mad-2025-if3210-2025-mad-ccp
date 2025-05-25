@@ -37,6 +37,17 @@ class HomeViewModel(
     private val _chartsLoading = MutableLiveData<Boolean>()
     val chartsLoading: LiveData<Boolean> = _chartsLoading
 
+    private val countryNameMap = mapOf(
+        "ID" to "Indonesia",
+        "MY" to "Malaysia",
+        "US" to "United States",
+        "GB" to "United Kingdom",
+        "CH" to "Switzerland",
+        "DE" to "Germany",
+        "BR" to "Brazil"
+    )
+
+    // Update the loadHomeData() method:
     fun loadHomeData() {
         _isLoading.value = true
         _chartsLoading.value = true
@@ -49,12 +60,17 @@ class HomeViewModel(
 
                 // Load user profile for country code
                 val profileResult = userRepository.getUserProfile()
-                if (profileResult.isSuccess) {
+                val countryCode = if (profileResult.isSuccess) {
                     _userProfile.value = profileResult.getOrNull()
+                    _userProfile.value?.location ?: "ID"
+                } else {
+                    "ID"
                 }
 
-                // Create chart items
+                // Create chart items with dynamic images
                 val chartItems = mutableListOf<ChartItem>()
+
+                // Global chart
                 chartItems.add(
                     ChartItem(
                         id = "global",
@@ -64,17 +80,29 @@ class HomeViewModel(
                     )
                 )
 
-                // Add local chart if country is available
-                val countryCode = _userProfile.value?.location ?: "ID" // Default to ID if not available
+                // Local chart with country-specific image
+                val localChartImageResId = when (countryCode) {
+                    "ID" -> com.example.purrytify.R.drawable.id_chart_cover
+                    "MY" -> com.example.purrytify.R.drawable.my_chart_cover
+                    "US" -> com.example.purrytify.R.drawable.us_chart_cover
+                    "GB" -> com.example.purrytify.R.drawable.gb_chart_cover
+                    "CH" -> com.example.purrytify.R.drawable.ch_chart_cover
+                    "DE" -> com.example.purrytify.R.drawable.de_chart_cover
+                    "BR" -> com.example.purrytify.R.drawable.br_chart_cover
+                    else -> com.example.purrytify.R.drawable.unknown_chart_cover
+                }
+
+                val countryName = countryNameMap[countryCode] ?: countryCode
                 chartItems.add(
                     ChartItem(
                         id = "local_$countryCode",
-                        title = "Top 10 $countryCode",
-                        imageResId = com.example.purrytify.R.drawable.local_chart_cover,
+                        title = "Top 10 $countryName",
+                        imageResId = localChartImageResId,
                         type = "local"
                     )
                 )
 
+                // Your Top Mixes
                 chartItems.add(
                     ChartItem(
                         id = "your_${countryCode}_top_songs",

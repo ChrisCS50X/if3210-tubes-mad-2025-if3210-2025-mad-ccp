@@ -34,15 +34,6 @@ class ChartRepository(private val tokenManager: TokenManager, private val songRe
         }
     }
 
-    /**
-     * Get top mixes with smart recommendations:
-     * - Maksimal 5 lagu dari smart recommendations
-     * - Jika kurang dari 5, tambahkan dari Global dan Local songs untuk total 10 lagu
-     * - Rasio: Global songs lebih banyak (3:2) jika perlu tambahan
-     *
-     * @param countryCode kode negara untuk mendapatkan local songs
-     * @return List maksimal 10 lagu dengan kombinasi smart recommendations dan random songs
-     */
     suspend fun getTopMixes(countryCode: String): Result<List<ChartSong>> {
         return withContext(Dispatchers.IO) {
             try {

@@ -26,14 +26,13 @@ class ChartSongsAdapter(
     private val downloadManager: DownloadManager
 ) : RecyclerView.Adapter<ChartSongsAdapter.ChartSongViewHolder>() {
 
-    // Add this map to store observers by position
     private val observers = mutableMapOf<Int, Observer<WorkInfo>>()
 
     inner class ChartSongViewHolder(private val binding: ItemChartSongBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(song: ChartSong, position: Int) {
-            binding.tvRank.text = "#${song.rank}"
+            binding.tvRank.text = song.rank.toString()
             binding.tvSongTitle.text = song.title
             binding.tvArtist.text = song.artist
 
@@ -49,7 +48,10 @@ class ChartSongsAdapter(
 
             lifecycleScope.launch {
                 try {
-                    val isDownloaded = songRepository.isDownloaded(convertedSong.id)
+                    val isDownloadedById = songRepository.isDownloaded(convertedSong.id)
+                    val isDuplicate = songRepository.isSongAlreadyDownloaded(song.title, song.artist)
+
+                    val isDownloaded = isDownloadedById || isDuplicate
 
                     btnDownload.setImageResource(
                         if (isDownloaded) R.drawable.ic_download_done else R.drawable.ic_download
@@ -137,5 +139,10 @@ class ChartSongsAdapter(
     // Clean up observers when adapter is detached
     fun clearObservers() {
         observers.clear()
+    }
+
+    fun refreshDownloadStates() {
+        Log.d("ChartSongsAdapter", "Refreshing download states for all songs")
+        notifyDataSetChanged()
     }
 }
