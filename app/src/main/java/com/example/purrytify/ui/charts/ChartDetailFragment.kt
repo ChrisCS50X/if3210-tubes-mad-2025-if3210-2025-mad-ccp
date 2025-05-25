@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import android.util.Log
 import kotlinx.coroutines.delay
 import androidx.appcompat.app.AlertDialog
+import com.example.purrytify.data.model.ChartSong
 
 class ChartDetailFragment : Fragment() {
 
@@ -39,6 +40,8 @@ class ChartDetailFragment : Fragment() {
 
     private var _binding: FragmentChartDetailBinding? = null
     private val binding get() = _binding!!
+
+    private var downloadReceiver: BroadcastReceiver? = null
 
     private val paddingReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -112,6 +115,20 @@ class ChartDetailFragment : Fragment() {
         val filter = IntentFilter("com.example.purrytify.UPDATE_BOTTOM_PADDING")
         LocalBroadcastManager.getInstance(requireContext())
             .registerReceiver(paddingReceiver, filter)
+
+        // Register for download completion updates
+        downloadReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                Log.d(TAG, "Download completion broadcast received")
+                adapter.refreshDownloadStates()
+            }
+        }
+
+        LocalBroadcastManager.getInstance(requireContext())
+            .registerReceiver(
+                downloadReceiver!!,
+                IntentFilter("com.example.purrytify.DOWNLOAD_COMPLETE")
+            )
     }
 
     private fun setupUI() {
@@ -221,40 +238,63 @@ class ChartDetailFragment : Fragment() {
             }
         }
 
+        // Replace the existing btnDownloadAll.setOnClickListener with this:
         binding.btnDownloadAll.setOnClickListener {
             viewModel.chartState.value?.let { state ->
                 if (state is ChartState.Success && state.songs.isNotEmpty()) {
-                    // Ask for confirmation before downloading all songs
-                    val songCount = state.songs.size
-                    val alertDialog = AlertDialog.Builder(requireContext())
-                        .setTitle("Download All Songs")
-                        .setMessage("Do you want to download all $songCount songs from ${binding.tvChartTitle.text}?")
-                        .setPositiveButton("Download") { _, _ ->
-                            // Download all songs
-                            var downloadCount = 0
+                    lifecycleScope.launch {
+                        // First, identify which songs need downloading
+                        val songsToDownload = mutableListOf<ChartSong>()
 
-                            for (chartSong in state.songs) {
-                                val song = chartSong.toSong()
-                                lifecycleScope.launch {
-                                    try {
-                                        if (!songRepository.isDownloaded(song.id)) {
-                                            downloadManager.enqueueDownload(song)
-                                            downloadCount++
-                                        }
-                                    } catch (e: Exception) {
-                                        Log.e(TAG, "Error downloading song: ${e.message}")
-                                    }
-                                }
+                        Log.d(TAG, "Checking download status for ${state.songs.size} songs")
+
+                        for (chartSong in state.songs) {
+                            val song = chartSong.toSong()
+
+                            // Check both ID and title/artist
+                            val isDownloadedById = songRepository.isDownloaded(song.id)
+                            val isDuplicate = songRepository.isSongAlreadyDownloaded(chartSong.title, chartSong.artist)
+
+                            val isDownloaded = isDownloadedById || isDuplicate
+
+                            Log.d(TAG, "Song ${song.title} (ID: ${song.id}): byId=$isDownloadedById, byTitleArtist=$isDuplicate, final=$isDownloaded")
+
+                            if (!isDownloaded) {
+                                songsToDownload.add(chartSong)
                             }
-
-                            Toast.makeText(requireContext(),
-                                "Downloading songs from ${binding.tvChartTitle.text}",
-                                Toast.LENGTH_SHORT).show()
                         }
-                        .setNegativeButton("Cancel", null)
-                        .create()
 
-                    alertDialog.show()
+                        if (songsToDownload.isEmpty()) {
+                            Toast.makeText(
+                                requireContext(),
+                                "All songs already downloaded",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@launch
+                        }
+
+                        // Ask for confirmation with accurate count
+                        val alertDialog = AlertDialog.Builder(requireContext())
+                            .setTitle("Download Songs")
+                            .setMessage("Download ${songsToDownload.size} songs from ${binding.tvChartTitle.text}?")
+                            .setPositiveButton("Download") { _, _ ->
+                                // Start downloads
+                                for (chartSong in songsToDownload) {
+                                    val song = chartSong.toSong()
+                                    downloadManager.enqueueDownload(song)
+                                }
+
+                                Toast.makeText(
+                                    requireContext(),
+                                    "Downloading ${songsToDownload.size} songs from ${binding.tvChartTitle.text}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .create()
+
+                        alertDialog.show()
+                    }
                 } else {
                     Toast.makeText(requireContext(), "No songs available to download", Toast.LENGTH_SHORT).show()
                 }
@@ -361,11 +401,16 @@ class ChartDetailFragment : Fragment() {
     }
 
     override fun onDestroyView() {
-        // Unregister receiver
         try {
             LocalBroadcastManager.getInstance(requireContext())
                 .unregisterReceiver(paddingReceiver)
+
+            downloadReceiver?.let {
+                LocalBroadcastManager.getInstance(requireContext())
+                    .unregisterReceiver(it)
+            }
         } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering receivers: ${e.message}")
         }
 
         adapter.clearObservers()

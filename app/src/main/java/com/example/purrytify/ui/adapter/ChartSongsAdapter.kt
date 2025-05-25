@@ -48,7 +48,10 @@ class ChartSongsAdapter(
 
             lifecycleScope.launch {
                 try {
-                    val isDownloaded = songRepository.isDownloaded(convertedSong.id)
+                    val isDownloadedById = songRepository.isDownloaded(convertedSong.id)
+                    val isDuplicate = songRepository.isSongAlreadyDownloaded(song.title, song.artist)
+
+                    val isDownloaded = isDownloadedById || isDuplicate
 
                     btnDownload.setImageResource(
                         if (isDownloaded) R.drawable.ic_download_done else R.drawable.ic_download
@@ -136,5 +139,10 @@ class ChartSongsAdapter(
     // Clean up observers when adapter is detached
     fun clearObservers() {
         observers.clear()
+    }
+
+    fun refreshDownloadStates() {
+        Log.d("ChartSongsAdapter", "Refreshing download states for all songs")
+        notifyDataSetChanged()
     }
 }

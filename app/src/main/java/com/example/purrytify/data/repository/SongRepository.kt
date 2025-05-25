@@ -243,6 +243,19 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
         }
     }
 
+    suspend fun isSongAlreadyDownloaded(title: String, artist: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val count = songDao.getSongCountByTitleAndArtist(title, artist)
+                Log.d("SongRepository", "Song check by title/artist: '$title' by '$artist' = $count")
+                count > 0
+            } catch (e: Exception) {
+                Log.e("SongRepository", "Error checking song by title/artist: ${e.message}", e)
+                false
+            }
+        }
+    }
+
     /**
      * Ambil 5 rekomendasi lagu terbaik berdasarkan kombinasi semua faktor:
      * - Trending songs (25%): Lagu yang banyak diputar dalam 7 hari terakhir
