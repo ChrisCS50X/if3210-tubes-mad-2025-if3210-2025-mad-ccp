@@ -38,6 +38,12 @@ import androidx.navigation.NavOptions
 import com.bumptech.glide.Glide
 import android.content.Context
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.PorterDuff
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 
 class MainActivity : AppCompatActivity() {
     private val networkViewModel by viewModels<NetworkViewModel>()
@@ -56,6 +62,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var currentTab = R.id.navigation_home
+    private var isLandscape = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,6 +126,10 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             binding = ActivityMainBinding.inflate(layoutInflater)
             setContentView(binding.root)
+
+            // Check orientation
+            isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
             setupMusicPlayer()
             setupNavigation()
             setupListPadding()
@@ -134,14 +145,46 @@ class MainActivity : AppCompatActivity() {
         tokenRefreshManager.scheduleTokenRefresh()
     }
 
-
     private fun setupNavigation() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
         var isInNowPlayingFragment = false
 
+        if (isLandscape) {
+            // Setup landscape navigation using sidebar LinearLayouts
+            setupLandscapeNavigation(navController)
+        } else {
+            // Setup portrait navigation using BottomNavigationView
+            setupPortraitNavigation(navController)
+        }
+
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            isInNowPlayingFragment = (destination.id == R.id.navigation_now_playing)
+            updateMiniPlayerVisibility(isInNowPlayingFragment)
+
+            if (destination.id != R.id.navigation_now_playing) {
+                if (!isLandscape) {
+                    binding.bottomNavigation.menu.findItem(destination.id)?.isChecked = true
+                } else {
+                    updateLandscapeNavigationState(destination.id)
+                }
+            }
+        }
+
+        musicPlayerViewModel.currentSong.observe(this) { song ->
+            if (!isInNowPlayingFragment) {
+                binding.miniPlayerContainer.visibility =
+                    if (song != null) View.VISIBLE else View.GONE
+            }
+
+            song?.let { updateMiniPlayer(it) }
+        }
+    }
+
+    private fun setupPortraitNavigation(navController: NavController) {
         binding.bottomNavigation.setOnItemSelectedListener { item ->
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
             val currentFragment = navHostFragment.childFragmentManager.fragments.firstOrNull()
             val isOnNowPlaying = currentFragment is NowPlayingFragment
 
@@ -157,23 +200,83 @@ class MainActivity : AppCompatActivity() {
 
             true
         }
+    }
 
-        navController.addOnDestinationChangedListener { _, destination, _ ->
-            isInNowPlayingFragment = (destination.id == R.id.navigation_now_playing)
-            updateMiniPlayerVisibility(isInNowPlayingFragment)
-
-            if (destination.id != R.id.navigation_now_playing) {
-                binding.bottomNavigation.menu.findItem(destination.id)?.isChecked = true
-            }
+    private fun setupLandscapeNavigation(navController: NavController) {
+        // Setup click listeners for landscape sidebar navigation
+        binding.navHome?.setOnClickListener {
+            navigateToDestination(navController, R.id.navigation_home)
         }
 
-        musicPlayerViewModel.currentSong.observe(this) { song ->
-            if (!isInNowPlayingFragment) {
-                binding.miniPlayerContainer.visibility =
-                    if (song != null) View.VISIBLE else View.GONE
-            }
+        binding.navLibrary?.setOnClickListener {
+            navigateToDestination(navController, R.id.navigation_library)
+        }
 
-            song?.let { updateMiniPlayer(it) }
+        binding.navProfile?.setOnClickListener {
+            navigateToDestination(navController, R.id.navigation_profile)
+        }
+    }
+
+    private fun navigateToDestination(navController: NavController, destinationId: Int) {
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        val currentFragment = navHostFragment.childFragmentManager.fragments.firstOrNull()
+        val isOnNowPlaying = currentFragment is NowPlayingFragment
+
+        if (isOnNowPlaying) {
+            navController.popBackStack(navController.graph.startDestinationId, false)
+        }
+
+        try {
+            navController.navigate(destinationId)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Navigation error: ${e.message}", e)
+        }
+    }
+
+    private fun updateLandscapeNavigationState(currentDestinationId: Int) {
+        // Reset all navigation items to unselected state
+        binding.navHome?.isSelected = false
+        binding.navLibrary?.isSelected = false
+        binding.navProfile?.isSelected = false
+
+        // Set warna hijau untuk item yang dipilih
+        val selectedColor = getColor(R.color.accent_green)
+        val unSelectedColor = getColor(R.color.white)
+        when (currentDestinationId) {
+            R.id.navigation_home -> {
+                binding.navHomeIc?.setColorFilter(selectedColor)
+                binding.navHomeText?.setTextColor(selectedColor)
+                binding.navHome?.isSelected = true
+                binding.navLibraryIc?.setColorFilter(unSelectedColor)
+                binding.navLibraryText?.setTextColor(unSelectedColor)
+                binding.navLibrary?.isSelected = false
+                binding.navProfileIc?.setColorFilter(unSelectedColor)
+                binding.navProfileText?.setTextColor(unSelectedColor)
+                binding.navProfile?.isSelected = false
+
+            }
+            R.id.navigation_library -> {
+                binding.navLibraryIc?.setColorFilter(selectedColor)
+                binding.navLibraryText?.setTextColor(selectedColor)
+                binding.navLibrary?.isSelected = true
+                binding.navProfileIc?.setColorFilter(unSelectedColor)
+                binding.navProfileText?.setTextColor(unSelectedColor)
+                binding.navProfile?.isSelected = false
+                binding.navHomeIc?.setColorFilter(unSelectedColor)
+                binding.navHomeText?.setTextColor(unSelectedColor)
+                binding.navHome?.isSelected = false
+            }
+            R.id.navigation_profile -> {
+                binding.navProfileIc?.setColorFilter(selectedColor)
+                binding.navProfileText?.setTextColor(selectedColor)
+                binding.navProfile?.isSelected = true
+                binding.navLibraryIc?.setColorFilter(unSelectedColor)
+                binding.navLibraryText?.setTextColor(unSelectedColor)
+                binding.navLibrary?.isSelected = false
+                binding.navHomeIc?.setColorFilter(unSelectedColor)
+                binding.navHomeText?.setTextColor(unSelectedColor)
+                binding.navHome?.isSelected = false
+            }
         }
     }
 
