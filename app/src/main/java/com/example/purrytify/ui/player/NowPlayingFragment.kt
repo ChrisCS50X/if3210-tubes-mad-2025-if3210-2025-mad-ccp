@@ -167,28 +167,37 @@ class NowPlayingFragment : Fragment() {
     }
 
     private fun updateSongInfo(song: Song) {
+        // Only access binding synchronously if we're sure it's attached
+        if (_binding == null) {
+            Log.d("NowPlayingFragment", "Skipping updateSongInfo, binding is null")
+            return
+        }
+
         binding.tvSongTitle.text = song.title
         binding.tvArtistName.text = song.artist
 
-        Glide.with(this)
-            .load(song.coverUrl)
-            .placeholder(R.drawable.placeholder_album)
-            .error(R.drawable.placeholder_album)
-            .transition(DrawableTransitionOptions.withCrossFade())
-            .into(binding.ivAlbumCover)
+        // Do synchronous UI updates only if we're still attached
+        _binding?.let { validBinding ->
+            Glide.with(this)
+                .load(song.coverUrl)
+                .placeholder(R.drawable.placeholder_album)
+                .error(R.drawable.placeholder_album)
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .into(validBinding.ivAlbumCover)
 
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(song.duration)
-        val seconds = TimeUnit.MILLISECONDS.toSeconds(song.duration) -
-                TimeUnit.MINUTES.toSeconds(minutes)
-        binding.tvTotalDuration.text = String.format("%02d:%02d", minutes, seconds)
+            val minutes = TimeUnit.MILLISECONDS.toMinutes(song.duration)
+            val seconds = TimeUnit.MILLISECONDS.toSeconds(song.duration) -
+                    TimeUnit.MINUTES.toSeconds(minutes)
+            validBinding.tvTotalDuration.text = String.format("%02d:%02d", minutes, seconds)
 
-        if (isAdded && !isDetached) {
-            try {
-                val gradient = BackgroundColorProvider.createGradientBackground(requireContext(), song)
-                binding.layoutNowPlaying.background = gradient
-            } catch (e: Exception) {
-                Log.e("NowPlayingFragment", "Error setting gradient background: ${e.message}")
-                binding.layoutNowPlaying.setBackgroundColor(android.graphics.Color.BLACK)
+            if (isAdded && !isDetached) {
+                try {
+                    val gradient = BackgroundColorProvider.createGradientBackground(requireContext(), song)
+                    validBinding.layoutNowPlaying.background = gradient
+                } catch (e: Exception) {
+                    Log.e("NowPlayingFragment", "Error setting gradient background: ${e.message}")
+                    validBinding.layoutNowPlaying.setBackgroundColor(android.graphics.Color.BLACK)
+                }
             }
         }
     }
@@ -334,35 +343,38 @@ class NowPlayingFragment : Fragment() {
                     true // Local songs are already "downloaded"
                 }
 
-                // Only show download button for online songs
-                binding.btnDownload.visibility = if (isOnlineSong) {
-                    if (isDownloaded) {
-                        binding.btnDownload.setImageResource(R.drawable.ic_download_done)
+                // Critical: Check if binding still exists before updating UI
+                _binding?.let { validBinding ->
+                    // Only show download button for online songs
+                    validBinding.btnDownload.visibility = if (isOnlineSong) {
+                        if (isDownloaded) {
+                            validBinding.btnDownload.setImageResource(R.drawable.ic_download_done)
+                        } else {
+                            validBinding.btnDownload.setImageResource(R.drawable.ic_download)
+                        }
+                        View.VISIBLE
                     } else {
-                        binding.btnDownload.setImageResource(R.drawable.ic_download)
+                        View.GONE
                     }
-                    View.VISIBLE
-                } else {
-                    View.GONE
-                }
 
-                // Set up download click listener
-                binding.btnDownload.setOnClickListener {
-                    if (!isDownloaded) {
-                        Toast.makeText(context,
-                            "Downloading ${song.title}...",
-                            Toast.LENGTH_SHORT).show()
-                        downloadManager.enqueueDownload(song)
-                        binding.btnDownload.isEnabled = false // Prevent multiple clicks
-                    } else {
-                        Toast.makeText(context,
-                            "Song already downloaded",
-                            Toast.LENGTH_SHORT).show()
+                    // Set up download click listener
+                    validBinding.btnDownload.setOnClickListener {
+                        if (!isDownloaded) {
+                            Toast.makeText(context,
+                                "Downloading ${song.title}...",
+                                Toast.LENGTH_SHORT).show()
+                            downloadManager.enqueueDownload(song)
+                            validBinding.btnDownload.isEnabled = false // Prevent multiple clicks
+                        } else {
+                            Toast.makeText(context,
+                                "Song already downloaded",
+                                Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("NowPlayingFragment", "Error updating download button: ${e.message}")
-                binding.btnDownload.visibility = View.GONE
+                _binding?.btnDownload?.visibility = View.GONE
             }
         }
     }

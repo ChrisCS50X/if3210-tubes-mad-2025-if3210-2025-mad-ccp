@@ -30,7 +30,7 @@
             android:padding="12dp"
             android:textColor="@android:color/white"
             android:fontFamily="@font/poppins_bold"
-            android:textSize="16sp" />
+            android:textSize="12sp" />
 
     </FrameLayout>
 </androidx.cardview.widget.CardView>
