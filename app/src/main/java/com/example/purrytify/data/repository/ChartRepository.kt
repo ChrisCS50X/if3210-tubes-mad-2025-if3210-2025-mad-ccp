@@ -125,4 +125,27 @@ class ChartRepository(private val tokenManager: TokenManager, private val songRe
             }
         }
     }
+
+    /**
+     * Get details of a specific song by ID from the server
+     * @param songId The ID of the song to retrieve
+     * @return Result containing Song details as ChartSong or an error
+     */
+    suspend fun getSongDetailFromServer(songId: Long): Result<ChartSong> {
+        return if (!tokenManager.isLoggedIn()) {
+            Result.failure(IllegalStateException("Not logged in"))
+        } else {
+            withContext(Dispatchers.IO) {
+                try {
+                    executeWithTokenRefresh<ChartSong>(UserRepository(tokenManager)) {
+                        val token = tokenManager.getToken() ?: throw IllegalStateException("Token not available")
+                        apiService.getSongById("Bearer $token", songId)
+                    }
+                } catch (e: Exception) {
+                    Log.e("ChartRepository", "Error fetching song detail from server: ${e.message}", e)
+                    Result.failure(e)
+                }
+            }
+        }
+    }
 }

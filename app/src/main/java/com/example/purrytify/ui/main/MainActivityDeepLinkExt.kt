@@ -9,6 +9,7 @@ import androidx.navigation.fragment.NavHostFragment
 import com.example.purrytify.NavGraphDirections
 import com.example.purrytify.R
 import com.example.purrytify.data.model.Song
+import com.example.purrytify.data.repository.ChartRepository
 import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.ui.player.NowPlayingFragment
 import com.example.purrytify.utils.SharingUtils
@@ -71,23 +72,42 @@ private fun MainActivity.handleSongDeepLink(songId: Long) {
         database.songDao(),
         applicationContext
     )
-    
+    val chartRepository = ChartRepository( // Added ChartRepository instance
+        com.example.purrytify.data.local.TokenManager(applicationContext),
+        songRepository
+    )
+
     lifecycleScope.launch {
         try {
-            // Fetch the song from the repository
-            val song = songRepository.getSongById(songId)
-            
-            if (song != null) {
-                // Navigate to the now playing page with the song
-                playSharedSong(song)
-                Log.d("DeepLink", "Successfully opened song: ${song.title}")
+            // Fetch the song from the server using ChartRepository
+            val result = chartRepository.getSongDetailFromServer(songId)
+            if (result.isSuccess) {
+                val chartSong = result.getOrNull()
+                if (chartSong != null) {
+                    val song = chartSong.toSong() // Convert ChartSong to Song
+                    // Navigate to the now playing page with the song
+                    playSharedSong(song)
+                    Log.d("DeepLink", "Successfully opened song: ${song.title}")
+                } else {
+                    Log.e("DeepLink", "Song not found with ID: $songId (from server)")
+                    Toast.makeText(this@handleSongDeepLink, "Song not found", Toast.LENGTH_SHORT).show()
+                }
             } else {
-                Log.e("DeepLink", "Song not found with ID: $songId")
-                // Future enhancement: show an error toast or dialog
+                Log.e("DeepLink", "Error fetching song $songId from server: ${result.exceptionOrNull()?.message}")
+                // Fallback to local repository if server fetch fails
+                Log.d("DeepLink", "Falling back to local repository for song ID: $songId")
+                val song = songRepository.getSongById(songId)
+                if (song != null) {
+                    playSharedSong(song)
+                    Log.d("DeepLink", "Successfully opened song from local: ${song.title}")
+                } else {
+                    Log.e("DeepLink", "Song not found with ID: $songId (local fallback)")
+                    Toast.makeText(this@handleSongDeepLink, "Song not found", Toast.LENGTH_SHORT).show()
+                }
             }
         } catch (e: Exception) {
             Log.e("DeepLink", "Error processing song deep link", e)
-            // Future enhancement: show an error toast or dialog
+            Toast.makeText(this@handleSongDeepLink, "Error playing song", Toast.LENGTH_SHORT).show()
         }
     }
 }
