@@ -2,4 +2,8 @@
 <paths>
     <cache-path name="shared_images" path="images/"/>
     <external-path name="external_files" path="."/>
+    <external-cache-path name="external_cache" path="."/>
+    <external-cache-path name="shared_html" path="shared/"/>
+    <cache-path name="internal_cache" path="."/>
+    <cache-path name="shared" path="shared/"/>
 </paths>
