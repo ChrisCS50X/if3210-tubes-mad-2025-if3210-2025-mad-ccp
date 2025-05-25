@@ -56,6 +56,33 @@
             android:maxLines="1"
             android:ellipsize="end"
             android:textSize="12sp" />
+            
+        <LinearLayout
+            android:id="@+id/audioOutputIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+            
+            <ImageView
+                android:id="@+id/audioDeviceIcon"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:src="@drawable/ic_audio_output"
+                app:tint="#AAAAAA" />
+                
+            <TextView
+                android:id="@+id/audioDeviceName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Internal Speaker"
+                android:textColor="#AAAAAA"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textSize="10sp"
+                android:layout_marginStart="2dp" />
+        </LinearLayout>
     </LinearLayout>
 
     <ImageButton

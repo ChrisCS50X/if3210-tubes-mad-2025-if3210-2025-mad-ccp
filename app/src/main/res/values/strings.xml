@@ -30,4 +30,14 @@
     <string name="cancel">Cancel</string>
     <string name="share_as_qr">Share as QR Code</string>
     <string name="share_as_link">Share as Link</string>
+    
+    <!-- Audio Device Selection -->
+    <string name="select_audio_device">Select Output Device</string>
+    <string name="select_output_device_description">Choose an audio device to play your music</string>
+    <string name="no_audio_devices_found">No audio devices found. Please check your Bluetooth connection.</string>
+    <string name="refresh_audio_devices">Refresh Devices</string>
+    <string name="audio_device_icon">Audio device icon</string>
+    <string name="currently_active">Currently active</string>
+    <string name="audio_output">Audio Output</string>
+    <string name="device_disconnected">Device disconnected. Switched to internal speaker.</string>
 </resources>

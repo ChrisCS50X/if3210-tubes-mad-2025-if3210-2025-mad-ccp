@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp"
+    android:background="@color/dark_gray_tab"
+    android:clickable="true"
+    android:focusable="true">
+
+    <ImageView
+        android:id="@+id/deviceIcon"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:contentDescription="@string/audio_device_icon"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/white"
+        tools:src="@drawable/ic_bluetooth_audio" />
+
+    <TextView
+        android:id="@+id/deviceName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="?attr/textAppearanceSubtitle1"
+        android:textColor="@color/white"
+        app:layout_constraintEnd_toStartOf="@+id/deviceActiveIndicator"
+        app:layout_constraintStart_toEndOf="@+id/deviceIcon"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="JBL Flip 6" />
+
+    <TextView
+        android:id="@+id/deviceStatus"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textAppearance="?attr/textAppearanceCaption"
+        android:textColor="@color/connected_green"
+        app:layout_constraintEnd_toEndOf="@+id/deviceName"
+        app:layout_constraintStart_toStartOf="@+id/deviceName"
+        app:layout_constraintTop_toBottomOf="@+id/deviceName"
+        tools:text="Connected" />
+
+    <ImageView
+        android:id="@+id/deviceActiveIndicator"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:contentDescription="@string/currently_active"
+        android:src="@drawable/ic_audio_active"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/white"
+        tools:visibility="visible" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

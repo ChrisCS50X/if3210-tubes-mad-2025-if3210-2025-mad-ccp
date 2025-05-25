@@ -47,7 +47,7 @@ import android.widget.TextView
 
 class MainActivity : AppCompatActivity() {
     private val networkViewModel by viewModels<NetworkViewModel>()
-    private lateinit var binding: ActivityMainBinding
+    lateinit var binding: ActivityMainBinding  // Changed from private to public
     private lateinit var tokenRefreshManager: TokenRefreshManager
     private lateinit var musicPlayerViewModel: MusicPlayerViewModel
     lateinit var database: AppDatabase
@@ -383,6 +383,13 @@ class MainActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this, "Storage permission is required to add songs", Toast.LENGTH_LONG).show()
             }
+        } else if (requestCode == BLUETOOTH_PERMISSION_CODE) {
+            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                // All requested Bluetooth permissions granted
+                Toast.makeText(this, "Bluetooth permissions granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Bluetooth permissions are required for this feature", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -398,11 +405,60 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun requestBluetoothPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // For Android 12+
+            val requiredPermissions = arrayOf(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN
+            )
+            
+            val permissionsToRequest = requiredPermissions.filter {
+                checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+            }.toTypedArray()
+            
+            if (permissionsToRequest.isNotEmpty()) {
+                requestPermissions(permissionsToRequest, BLUETOOTH_PERMISSION_CODE)
+            }
+        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
+            // For Android 11 and below
+            val requiredPermissions = arrayOf(
+                Manifest.permission.BLUETOOTH,
+                Manifest.permission.BLUETOOTH_ADMIN,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+            
+            val permissionsToRequest = requiredPermissions.filter {
+                checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+            }.toTypedArray()
+            
+            if (permissionsToRequest.isNotEmpty()) {
+                requestPermissions(permissionsToRequest, BLUETOOTH_PERMISSION_CODE)
+            }
+        }
+    }
+
     private fun setupMusicPlayer() {
         database = AppDatabase.getInstance(this)
         val repository = SongRepository(database.songDao(), applicationContext)
         val factory = MusicPlayerViewModelFactory(application, repository)
         musicPlayerViewModel = ViewModelProvider(this, factory)[MusicPlayerViewModel::class.java]
+
+        musicPlayerViewModel.audioDeviceError.observe(this) { errorMessage ->
+            errorMessage?.let {
+                Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
+                musicPlayerViewModel.clearAudioDeviceError()
+            }
+        }
+
+        musicPlayerViewModel.currentSong.value?.let { song ->
+            lifecycleScope.launch {
+                val isLiked =repository.getLikedStatusBySongId(song.id)
+                binding.miniPlayer.btnAddLiked.setImageResource(
+                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                )
+            }
+        }
 
         binding.miniPlayer.btnMiniPlayPause.setOnClickListener {
             Log.d("MainActivity", "Play/Pause button clicked, current state: ${musicPlayerViewModel.isPlaying.value}")
@@ -482,6 +538,11 @@ class MainActivity : AppCompatActivity() {
 
         binding.miniPlayer.tvMiniTitle.text = song.title
         binding.miniPlayer.tvMiniArtist.text = song.artist
+        
+        // Observe active audio device and update indicator
+        musicPlayerViewModel.activeAudioDevice.observe(this) { device ->
+            device?.let { updateAudioDeviceIndicator(it) }
+        }
 
         Glide.with(this)
             .load(song.coverUrl)
@@ -589,8 +650,48 @@ class MainActivity : AppCompatActivity() {
      */
     fun getMusicPlayerViewModel() = musicPlayerViewModel
 
+    /**
+     * Update the audio device indicator in the mini player
+     */
+    private fun updateAudioDeviceIndicator(device: com.example.purrytify.data.model.AudioDevice) {
+        try {
+            // Get mini player views
+            val audioIndicator = binding.miniPlayer.audioOutputIndicator
+            val deviceIcon = binding.miniPlayer.audioDeviceIcon
+            val deviceName = binding.miniPlayer.audioDeviceName
+            
+            // Make indicator visible
+            audioIndicator.visibility = View.VISIBLE
+            
+            // Set device name
+            deviceName.text = device.name
+            
+            // Set appropriate icon based on device type
+            when (device.type) {
+                com.example.purrytify.data.model.AudioDeviceType.BLUETOOTH -> {
+                    deviceIcon.setImageResource(R.drawable.ic_bluetooth_audio)
+                }
+                com.example.purrytify.data.model.AudioDeviceType.WIRED_HEADSET -> {
+                    deviceIcon.setImageResource(R.drawable.ic_headset)
+                }
+                com.example.purrytify.data.model.AudioDeviceType.INTERNAL_SPEAKER -> {
+                    deviceIcon.setImageResource(R.drawable.ic_speaker)
+                }
+                com.example.purrytify.data.model.AudioDeviceType.USB_AUDIO -> {
+                    deviceIcon.setImageResource(R.drawable.ic_usb_audio)
+                }
+                else -> {
+                    deviceIcon.setImageResource(R.drawable.ic_audio_output)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error updating audio device indicator: ${e.message}")
+        }
+    }
+
     companion object {
         private const val NOTIFICATION_PERMISSION_CODE = 101
         private const val STORAGE_PERMISSION_CODE = 100
+        private const val BLUETOOTH_PERMISSION_CODE = 102
     }
 }

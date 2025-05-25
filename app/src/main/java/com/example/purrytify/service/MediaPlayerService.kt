@@ -20,8 +20,10 @@ import androidx.core.net.toUri
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.Observer
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.purrytify.R
+import com.example.purrytify.data.model.AudioDevice
 import com.example.purrytify.data.model.Song
 import com.example.purrytify.ui.main.MainActivity
 import java.io.IOException
@@ -53,10 +55,25 @@ import java.util.concurrent.TimeUnit
 class MediaPlayerService : LifecycleService() {
     private val TAG = "MediaPlayerService"
 
+    // Constants for notification and actions
+    companion object {
+        const val NOTIFICATION_ID = 101
+        const val CHANNEL_ID = "purrytify_music_player_channel"
+        const val ACTION_PLAY = "com.example.purrytify.PLAY"
+        const val ACTION_PAUSE = "com.example.purrytify.PAUSE"
+        const val ACTION_PREVIOUS = "com.example.purrytify.PREVIOUS"
+        const val ACTION_NEXT = "com.example.purrytify.NEXT"
+        const val ACTION_STOP = "com.example.purrytify.STOP"
+    }
+
     private var mediaPlayer: MediaPlayer? = null
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private var mediaSession: MediaSessionCompat? = null
+    
+    // Audio device management
+    private var audioDeviceManager: AudioDeviceManager? = null
+    private var activeDeviceObserver: Observer<AudioDevice?>? = null
     
     // Analytics tracking
     private lateinit var analyticsRepository: AnalyticsRepository
@@ -110,6 +127,9 @@ class MediaPlayerService : LifecycleService() {
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        
+        // Initialize audio device manager
+        initializeAudioDeviceManager()
         
         // Initialize analytics tracking
         val database = AppDatabase.getInstance(applicationContext)
@@ -476,6 +496,9 @@ class MediaPlayerService : LifecycleService() {
             mediaSession?.isActive = true
 
             updateNotification()
+            
+            // Apply audio device settings before creating MediaPlayer
+            applyAudioDeviceSettings()
 
             // Create and prepare new MediaPlayer
             Log.d(TAG, "playSong: Creating new MediaPlayer instance")
@@ -1418,6 +1441,21 @@ class MediaPlayerService : LifecycleService() {
         }
         mediaPlayer = null
 
+        // Clean up audio device manager
+        try {
+            // Remove active device observer
+            if (activeDeviceObserver != null) {
+                audioDeviceManager?.activeDevice?.removeObserver(activeDeviceObserver!!)
+            }
+            
+            // Clean up the audio device manager
+            audioDeviceManager?.cleanup()
+            audioDeviceManager = null
+            Log.d(TAG, "onDestroy: Audio device manager cleaned up")
+        } catch (e: Exception) {
+            Log.e(TAG, "onDestroy: Error cleaning up audio device manager", e)
+        }
+
         // Bersihkan resource lainnya
         mediaSession?.release()
         abandonAudioFocus()
@@ -1426,14 +1464,194 @@ class MediaPlayerService : LifecycleService() {
         super.onDestroy()
     }
 
-    companion object {
-        private const val CHANNEL_ID = "purrytify_media_channel"
-        private const val NOTIFICATION_ID = 1
+    /**
+     * Initialize the audio device manager and observe device changes
+     */
+    private fun initializeAudioDeviceManager() {
+        try {
+            audioDeviceManager = AudioDeviceManager(applicationContext)
+            audioDeviceManager?.initialize()
+            
+            // Create observer for active device changes
+            activeDeviceObserver = Observer { device ->
+                Log.d(TAG, "Active audio device changed to: ${device?.name}")
+                
+                // Apply audio routing when device changes
+                applyAudioDeviceSettings()
+                
+                // If we have an active MediaPlayer, recreate it to apply new audio device
+                if (mediaPlayer != null && _currentSong.value != null) {
+                    val wasPlaying = mediaPlayer?.isPlaying ?: false
+                    val currentPosition = mediaPlayer?.currentPosition ?: 0
+                    
+                    // Recreate the MediaPlayer with the new routing
+                    recreateMediaPlayer(_currentSong.value, currentPosition, wasPlaying)
+                }
+            }
+            
+            // Start observing changes in active device
+            audioDeviceManager?.activeDevice?.observeForever(activeDeviceObserver!!)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing AudioDeviceManager", e)
+        }
+    }
+    
+    /**
+     * Apply audio device settings based on currently selected audio device
+     */
+    private fun applyAudioDeviceSettings() {
+        try {
+            val activeDevice = audioDeviceManager?.activeDevice?.value
+            Log.d(TAG, "Applying audio settings for device: ${activeDevice?.name}")
+            
+            // No need to do anything here as AudioDeviceManager handles the routing
+            // The MediaPlayer will pick up the system audio routing
+        } catch (e: Exception) {
+            Log.e(TAG, "Error applying audio device settings", e)
+        }
+    }
+    
+    /**
+     * Recreate the MediaPlayer to apply new audio routing
+     */
+    private fun recreateMediaPlayer(song: Song?, position: Int = 0, startPlaying: Boolean = false) {
+        try {
+            // Remember current state
+            val currentSong = song ?: return
+            
+            // Release current MediaPlayer
+            releaseMediaPlayer()
+            
+            // Create new MediaPlayer with current settings
+            mediaPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                
+                // Apply audio device settings
+                applyAudioDeviceSettings()
+                
+                // Set up the MediaPlayer with the song
+                try {
+                    if (currentSong.filePath.startsWith("http")) {
+                        // Handle online song
+                        setDataSource(currentSong.filePath)
+                        prepareAsync()
+                        setOnPreparedListener { mp ->
+                            mp.seekTo(position)
+                            _duration.postValue(mp.duration)
+                            if (startPlaying) {
+                                mp.start()
+                                _isPlaying.postValue(true)
+                                mainHandler.post(progressUpdateJob!!)
+                                startMediaSessionUpdates()
+                            }
+                            updateNotification()
+                        }
+                    } else {
+                        // Handle local song
+                        setDataSource(applicationContext, currentSong.filePath.toUri())
+                        prepare()
+                        seekTo(position)
+                        _duration.postValue(duration)
+                        if (startPlaying) {
+                            start()
+                            _isPlaying.postValue(true)
+                            mainHandler.post(progressUpdateJob!!)
+                            startMediaSessionUpdates()
+                        }
+                        updateNotification()
+                    }
+                    
+                    // Set completion listener
+                    setOnCompletionListener { handleSongCompletion() }
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error setting up MediaPlayer", e)
+                    _isPlaying.postValue(false)
+                }
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error recreating MediaPlayer", e)
+        }
+    }
 
-        const val ACTION_PLAY = "com.example.purrytify.service.ACTION_PLAY"
-        const val ACTION_PAUSE = "com.example.purrytify.service.ACTION_PAUSE"
-        const val ACTION_PREVIOUS = "com.example.purrytify.service.ACTION_PREVIOUS"
-        const val ACTION_NEXT = "com.example.purrytify.service.ACTION_NEXT"
-        const val ACTION_STOP = "com.example.purrytify.service.ACTION_STOP"
+    /**
+     * Release the MediaPlayer resources
+     */
+    private fun releaseMediaPlayer() {
+        try {
+            mediaPlayer?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                }
+                it.release()
+                Log.d(TAG, "MediaPlayer released")
+            }
+            mediaPlayer = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing MediaPlayer", e)
+        }
+    }
+
+    /**
+     * Handle song completion event
+     */
+    private fun handleSongCompletion() {
+        Log.d(TAG, "Song completed")
+        
+        mainHandler.post {
+            try {
+                // Record the final segment of listening time
+                if (playStartTime > 0) {
+                    val currentTime = System.currentTimeMillis()
+                    val duration = currentTime - playStartTime
+                    totalPlayTimeInSession += duration
+                    
+                    // Record the listening session in the database
+                    _currentSong.value?.let { song ->
+                        val userId = tokenManager.getEmail()
+                        if (!userId.isNullOrEmpty()) {
+                            lifecycleScope.launch {
+                                analyticsRepository.recordSongListening(userId, song, duration)
+                                Log.d(TAG, "onCompletion: Recorded ${duration}ms of listening time for ${song.title}")
+                            }
+                        }
+                    }
+                    
+                    // Reset the start time
+                    playStartTime = 0
+                }
+                
+                // Update playing status
+                _isPlaying.postValue(false)
+
+                // Check for repeat mode
+                val repeatModeIntent = Intent("com.example.purrytify.CHECK_REPEAT_MODE")
+                // Set package to make it explicit
+                repeatModeIntent.setPackage(applicationContext.packageName)
+                LocalBroadcastManager.getInstance(applicationContext)
+                    .sendBroadcast(repeatModeIntent)
+
+                // Use LocalBroadcastManager for safer broadcast
+                try {
+                    val intent = Intent("com.example.purrytify.PLAY_NEXT")
+                    // Set package to make it explicit
+                    intent.setPackage(applicationContext.packageName)
+                    LocalBroadcastManager.getInstance(applicationContext)
+                        .sendBroadcast(intent)
+                    Log.d(TAG, "Song completion: Local broadcast sent to play next song")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Song completion: Error sending local broadcast", e)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Song completion: Error in completion handler", e)
+            }
+        }
     }
 }

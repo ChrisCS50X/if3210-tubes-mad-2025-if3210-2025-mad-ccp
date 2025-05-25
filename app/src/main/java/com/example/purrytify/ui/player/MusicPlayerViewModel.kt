@@ -62,6 +62,18 @@ class MusicPlayerViewModel(
 
     private val _queueLiveData = MutableLiveData<List<Song>>(emptyList())
     val queueLiveData: LiveData<List<Song>> = _queueLiveData
+    
+    // Audio Device Management
+    private lateinit var audioDeviceManager: com.example.purrytify.service.AudioDeviceManager
+    
+    private val _availableAudioDevices = MutableLiveData<List<com.example.purrytify.data.model.AudioDevice>>(emptyList())
+    val availableAudioDevices: LiveData<List<com.example.purrytify.data.model.AudioDevice>> = _availableAudioDevices
+    
+    private val _activeAudioDevice = MutableLiveData<com.example.purrytify.data.model.AudioDevice?>()
+    val activeAudioDevice: LiveData<com.example.purrytify.data.model.AudioDevice?> = _activeAudioDevice
+    
+    private val _audioDeviceError = MutableLiveData<String?>()
+    val audioDeviceError: LiveData<String?> = _audioDeviceError
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -84,8 +96,9 @@ class MusicPlayerViewModel(
 
     init {
         bindService()
+        initializeAudioDeviceManager()
     }
-
+    
     private fun observeServiceLiveData() {
         Log.d("MusicPlayerViewModel", "Setting up LiveData observers for service")
         mediaPlayerService?.let { service ->
@@ -118,6 +131,47 @@ class MusicPlayerViewModel(
             context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
             context.startService(intent)
         }
+    }
+
+    private fun initializeAudioDeviceManager() {
+        // Initialize the audio device manager
+        audioDeviceManager = com.example.purrytify.service.AudioDeviceManager(getApplication())
+        
+        // Initialize the manager and start monitoring devices
+        audioDeviceManager.initialize()
+        
+        // Observe changes in available devices
+        audioDeviceManager.availableDevices.observeForever { devices ->
+            _availableAudioDevices.value = devices
+        }
+        
+        // Observe changes in active device
+        audioDeviceManager.activeDevice.observeForever { device ->
+            _activeAudioDevice.value = device
+        }
+        
+        // Observe error events
+        audioDeviceManager.errorEvent.observeForever { error ->
+            if (error != null) {
+                _audioDeviceError.value = error
+                audioDeviceManager.clearErrorEvent()
+            }
+        }
+    }
+    
+    // Method to refresh audio device list
+    fun refreshAudioDevices() {
+        audioDeviceManager.initialize()
+    }
+    
+    // Method to set active audio device
+    fun setActiveAudioDevice(deviceId: String) {
+        audioDeviceManager.setActiveDevice(deviceId)
+    }
+    
+    // Method to clear audio device error message
+    fun clearAudioDeviceError() {
+        _audioDeviceError.value = null
     }
 
     fun playSong(song: Song) {
@@ -273,6 +327,11 @@ class MusicPlayerViewModel(
         if (bound) {
             getApplication<Application>().unbindService(serviceConnection)
             bound = false
+        }
+        
+        // Clean up audio device manager
+        if (::audioDeviceManager.isInitialized) {
+            audioDeviceManager.cleanup()
         }
     }
 

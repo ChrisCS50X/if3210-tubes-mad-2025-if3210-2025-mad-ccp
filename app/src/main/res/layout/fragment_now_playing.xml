@@ -29,6 +29,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <ImageButton
+        android:id="@+id/btnAudioOutput"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/audio_output"
+        android:src="@drawable/ic_audio_output"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/white" />
+
     <ImageView
         android:id="@+id/ivAlbumCover"
         android:layout_width="0dp"
@@ -98,7 +109,7 @@
         android:maxLines="1"
         android:textColor="#AAAAAA"
         android:textSize="16sp"
-        app:layout_constraintEnd_toStartOf="@+id/btn_queue"
+        app:layout_constraintEnd_toStartOf="@+id/btnAudioOutput"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvSongTitle"
         tools:text="Artist Name"
