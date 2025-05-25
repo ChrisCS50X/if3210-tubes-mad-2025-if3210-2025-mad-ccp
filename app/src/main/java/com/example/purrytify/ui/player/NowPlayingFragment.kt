@@ -98,7 +98,7 @@ class NowPlayingFragment : Fragment() {
         setupControls()
         observeViewModel()
     }
-    
+
     override fun onResume() {
         super.onResume()
         try {
@@ -111,11 +111,15 @@ class NowPlayingFragment : Fragment() {
             LocalBroadcastManager.getInstance(requireContext())
                 .registerReceiver(checkRepeatModeReceiver, filterCheckRepeatMode)
             Log.d("NowPlayingFragment", "Registered broadcast receiver for CHECK_REPEAT_MODE")
+
+            // Refresh like status saat fragment terlihat
+            musicPlayerViewModel.refreshLikeStatus()
+
         } catch (e: Exception) {
             Log.e("NowPlayingFragment", "Error registering receiver", e)
         }
     }
-    
+
     override fun onPause() {
         super.onPause()
         try {
@@ -131,13 +135,16 @@ class NowPlayingFragment : Fragment() {
         }
     }
 
+
+// NowPlayingFragment.kt - Updated setupUI and observeViewModel methods
+
     private fun setupUI() {
         Log.d("NowPlayingFragment", "Setting up UI")
 
         binding.btnBack.setOnClickListener {
             findNavController().navigateUp()
         }
-        
+
         binding.btnShare.setOnClickListener {
             musicPlayerViewModel.currentSong.value?.let { song ->
                 if (SharingUtils.canShareSong(song)) {
@@ -148,57 +155,20 @@ class NowPlayingFragment : Fragment() {
             }
         }
 
+        // Updated favorite button click listener - uses ViewModel method consistently
         binding.btnFavorite.setOnClickListener {
-            musicPlayerViewModel.currentSong.value?.let { song ->
-                lifecycleScope.launch {
-                    try {
-                        if (songRepository.getLikedStatusBySongId(song.id)) {
-                            songRepository.updateLikeStatus(song.id, false)
-                            binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
-                        } else {
-                            songRepository.updateLikeStatus(song.id, true)
-                            binding.btnFavorite.setImageResource(R.drawable.ic_heart_filled)
-                        }
-                    } catch (e: Exception) {
-                        Log.e("NowPlayingFragment", "Error toggling liked status: ${e.message}")
-                        Toast.makeText(requireContext(), "Error updating like status", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
+            Log.d("NowPlayingFragment", "Favorite button clicked")
+            musicPlayerViewModel.toggleLikeStatus()
         }
 
         args.song?.let { song ->
             updateSongInfo(song)
-            lifecycleScope.launch {
-                try {
-                    val isLiked = songRepository.getLikedStatusBySongId(song.id)
-                    binding.btnFavorite.setImageResource(
-                        if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                    )
-                } catch (e: Exception) {
-                    Log.e("NowPlayingFragment", "Error checking initial liked status: ${e.message}")
-                    binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
-                }
-            }
         }
     }
 
     private fun updateSongInfo(song: Song) {
         binding.tvSongTitle.text = song.title
         binding.tvArtistName.text = song.artist
-
-        // Add try-catch around liked status check
-        lifecycleScope.launch {
-            try {
-                val isLiked = songRepository.getLikedStatusBySongId(song.id)
-                binding.btnFavorite.setImageResource(
-                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                )
-            } catch (e: Exception) {
-                Log.e("NowPlayingFragment", "Error checking liked status: ${e.message}")
-                binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
-            }
-        }
 
         Glide.with(this)
             .load(song.coverUrl)
@@ -285,6 +255,14 @@ class NowPlayingFragment : Fragment() {
 
                 updateDownloadButtonVisibility(it)
             }
+        }
+
+        // Observer untuk Like Status pada Fragment Now Playing
+        musicPlayerViewModel.isCurrentSongLiked.observe(viewLifecycleOwner) { isLiked ->
+            Log.d("NowPlayingFragment", "Like status changed to: $isLiked for song: ${musicPlayerViewModel.currentSong.value?.title}")
+            binding.btnFavorite.setImageResource(
+                if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+            )
         }
 
         musicPlayerViewModel.isPlaying.observe(viewLifecycleOwner) { isPlayingValue ->

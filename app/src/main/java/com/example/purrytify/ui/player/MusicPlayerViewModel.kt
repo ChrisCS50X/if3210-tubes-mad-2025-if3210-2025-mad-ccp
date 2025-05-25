@@ -53,6 +53,9 @@ class MusicPlayerViewModel(
     private val _repeatMode = MutableLiveData<RepeatMode>(RepeatMode.OFF)
     val repeatMode: LiveData<RepeatMode> = _repeatMode
 
+    private val _isCurrentSongLiked = MutableLiveData<Boolean>(false)
+    val isCurrentSongLiked: LiveData<Boolean> = _isCurrentSongLiked
+
     private val _queue = LinkedList<Song>()
 
     private val _originalQueue = mutableListOf<Song>()
@@ -89,6 +92,9 @@ class MusicPlayerViewModel(
             service.currentSong.observeForever { song ->
                 Log.d("MusicPlayerViewModel", "Song updated from service: ${song?.title}")
                 _currentSong.postValue(song)
+
+                // Update like status saat lagu berubah
+                song?.let { updateLikeStatus(it.id) }
             }
 
             service.isPlaying.observeForever { playing ->
@@ -120,11 +126,54 @@ class MusicPlayerViewModel(
                 songRepository.updateLastPlayed(song.id)
                 songRepository.incrementPlayCount(song.id)
             } catch (e: Exception) {
-
+                Log.e("MusicPlayerViewModel", "Error updating song stats: ${e.message}")
             }
         }
 
         mediaPlayerService?.playSong(song)
+    }
+
+    private fun updateLikeStatus(songId: Long) {
+        viewModelScope.launch {
+            try {
+                val isLiked = songRepository.getLikedStatusBySongId(songId)
+                Log.d("MusicPlayerViewModel", "Updating like status for song $songId: $isLiked")
+                _isCurrentSongLiked.postValue(isLiked)
+            } catch (e: Exception) {
+                Log.e("MusicPlayerViewModel", "Error checking like status: ${e.message}")
+                _isCurrentSongLiked.postValue(false)
+            }
+        }
+    }
+
+    fun toggleLikeStatus() {
+        viewModelScope.launch {
+            currentSong.value?.let { song ->
+                try {
+                    val currentStatus = _isCurrentSongLiked.value ?: false
+                    val newStatus = !currentStatus
+
+                    Log.d("MusicPlayerViewModel", "Toggling like status for ${song.title}: $currentStatus -> $newStatus")
+
+                    songRepository.updateLikeStatus(song.id, newStatus)
+                    _isCurrentSongLiked.postValue(newStatus)
+
+                    Log.d("MusicPlayerViewModel", "Like status successfully updated: ${song.title} -> $newStatus")
+                } catch (e: Exception) {
+                    Log.e("MusicPlayerViewModel", "Error toggling like status: ${e.message}")
+                    // Revert to current status on error
+                    updateLikeStatus(song.id)
+                }
+            } ?: run {
+                Log.w("MusicPlayerViewModel", "Cannot toggle like status: no current song")
+            }
+        }
+    }
+
+    fun refreshLikeStatus() {
+        currentSong.value?.let { song ->
+            updateLikeStatus(song.id)
+        }
     }
 
     fun handleSongDeleted(songId: Long) {
@@ -136,6 +185,7 @@ class MusicPlayerViewModel(
             _isPlaying.postValue(false)
             _progress.postValue(0)
             _duration.postValue(100)
+            _isCurrentSongLiked.postValue(false) // Reset like status
 
             _queue.removeIf { it.id == songId }
             _originalQueue.removeIf { it.id == songId }
@@ -163,15 +213,15 @@ class MusicPlayerViewModel(
             }
         }
     }
-    
+
     fun toggleShuffle() {
         val currentShuffleState = _isShuffleEnabled.value ?: false
         val newState = !currentShuffleState
-        
+
         Log.d("MusicPlayerViewModel", "Toggling shuffle from $currentShuffleState to $newState")
-        
+
         _isShuffleEnabled.value = newState
-        
+
         if (_isShuffleEnabled.value == true) {
             if (_queue.isNotEmpty()) {
                 _originalQueue.clear()
@@ -191,7 +241,7 @@ class MusicPlayerViewModel(
                 _queueLiveData.value = _queue.toList()
             }
         }
-        
+
         Log.d("MusicPlayerViewModel", "Shuffle is now ${if (_isShuffleEnabled.value == true) "enabled" else "disabled"}")
     }
 
@@ -249,12 +299,12 @@ class MusicPlayerViewModel(
     fun playNext() {
         viewModelScope.launch {
             if (_repeatMode.value == RepeatMode.ONE) {
-                currentSong.value?.let { 
-                    playSong(it) 
+                currentSong.value?.let {
+                    playSong(it)
                     return@launch
                 }
             }
-            
+
             if (_queue.isNotEmpty()) {
                 val nextSong = _queue.removeFirst()
                 if (_isShuffleEnabled.value == false && _originalQueue.isNotEmpty()) {
@@ -306,12 +356,12 @@ class MusicPlayerViewModel(
     fun playPrevious() {
         viewModelScope.launch {
             if (_repeatMode.value == RepeatMode.ONE) {
-                currentSong.value?.let { 
-                    playSong(it) 
+                currentSong.value?.let {
+                    playSong(it)
                     return@launch
                 }
             }
-            
+
             currentSong.value?.let { currentSong ->
                 if (_isShuffleEnabled.value == true) {
                     viewModelScope.launch {

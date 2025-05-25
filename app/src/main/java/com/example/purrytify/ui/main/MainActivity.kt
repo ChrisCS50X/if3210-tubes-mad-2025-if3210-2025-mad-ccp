@@ -61,13 +61,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         verifyTokenAndNavigate()
-        
+
         // Handle deep links that launched the app
         if (intent?.data != null) {
             handleDeepLink(intent)
         }
     }
-    
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -271,15 +271,6 @@ class MainActivity : AppCompatActivity() {
         val factory = MusicPlayerViewModelFactory(application, repository)
         musicPlayerViewModel = ViewModelProvider(this, factory)[MusicPlayerViewModel::class.java]
 
-        musicPlayerViewModel.currentSong.value?.let { song ->
-            lifecycleScope.launch {
-                val isLiked =repository.getLikedStatusBySongId(song.id)
-                binding.miniPlayer.btnAddLiked.setImageResource(
-                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                )
-            }
-        }
-
         binding.miniPlayer.btnMiniPlayPause.setOnClickListener {
             Log.d("MainActivity", "Play/Pause button clicked, current state: ${musicPlayerViewModel.isPlaying.value}")
             musicPlayerViewModel.togglePlayPause()
@@ -289,7 +280,6 @@ class MainActivity : AppCompatActivity() {
             try {
                 val currentSong = musicPlayerViewModel.currentSong.value
                 if (currentSong != null) {
-                    // Use your existing navigation method
                     navigateToNowPlaying(currentSong)
                 } else {
                     binding.miniPlayerContainer.visibility = View.GONE
@@ -301,21 +291,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Updated like button to use ViewModel
         binding.miniPlayer.btnAddLiked.setOnClickListener {
-            musicPlayerViewModel.currentSong.value?.let { song ->
-                lifecycleScope.launch {
-                    if(repository.getLikedStatusBySongId(song.id)){
-                        repository.updateLikeStatus(song.id, false)
-                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_heart_outline)
-                    }
-                    else{
-                        repository.updateLikeStatus(song.id, true)
-                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_heart_filled)
-                    }
-                }
-            }
+            Log.d("MainActivity", "Like button clicked")
+            musicPlayerViewModel.toggleLikeStatus()
         }
-        
+
         binding.miniPlayer.btnMiniShare.setOnClickListener {
             musicPlayerViewModel.currentSong.value?.let { song ->
                 if (SharingUtils.canShareSong(song)) {
@@ -326,6 +307,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Observe progress and duration
         musicPlayerViewModel.progress.observe(this) { progress ->
             binding.miniPlayer.miniSeekBar.progress = progress
         }
@@ -334,6 +316,7 @@ class MainActivity : AppCompatActivity() {
             binding.miniPlayer.miniSeekBar.max = duration
         }
 
+        // Observe current song changes
         musicPlayerViewModel.currentSong.observe(this) { song ->
             Log.d("MainActivity", "Current song changed: ${song?.title ?: "null"}")
             song?.let {
@@ -341,6 +324,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Observe play/pause state
         musicPlayerViewModel.isPlaying.observe(this) { isPlaying ->
             val icon = if (isPlaying) {
                 R.drawable.ic_pause
@@ -348,6 +332,14 @@ class MainActivity : AppCompatActivity() {
                 R.drawable.ic_play
             }
             binding.miniPlayer.btnMiniPlayPause.setImageResource(icon)
+        }
+
+        // Observe like status dari ViewModel
+        musicPlayerViewModel.isCurrentSongLiked.observe(this) { isLiked ->
+            Log.d("MainActivity", "Like status changed in mini player: $isLiked")
+            binding.miniPlayer.btnAddLiked.setImageResource(
+                if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+            )
         }
     }
 
@@ -357,20 +349,6 @@ class MainActivity : AppCompatActivity() {
 
         binding.miniPlayer.tvMiniTitle.text = song.title
         binding.miniPlayer.tvMiniArtist.text = song.artist
-
-        musicPlayerViewModel.currentSong.value?.let { currentSong ->
-            lifecycleScope.launch {
-                val isLiked = try {
-                    repository.getLikedStatusBySongId(currentSong.id)
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Error getting liked status: ${e.message}")
-                    false
-                }
-                binding.miniPlayer.btnAddLiked.setImageResource(
-                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                )
-            }
-        }
 
         Glide.with(this)
             .load(song.coverUrl)
@@ -407,39 +385,6 @@ class MainActivity : AppCompatActivity() {
             // Handle navigation failures gracefully
             Toast.makeText(this, "Unable to open player", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun logBackStack(navController: NavController) {
-        val backStack = mutableListOf<String>()
-        var backStackIndex = 0
-
-        try {
-            while (true) {
-                val entry = navController.getBackStackEntry(backStackIndex)
-                backStack.add("${entry.destination.label ?: entry.destination.id}")
-                backStackIndex++
-            }
-        } catch (e: Exception) {
-
-        }
-
-        Log.d("NavigationDebug", "Back stack (${backStack.size}): ${backStack.joinToString(" -> ")}")
-    }
-
-    fun navigateBackFromNowPlaying() {
-        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-        val navController = navHostFragment.navController
-
-        Log.d("Navigation", "Navigating back from Now Playing to tab: $currentTab")
-
-        when (currentTab) {
-            R.id.navigation_home -> navController.navigate(R.id.navigation_home)
-            R.id.navigation_library -> navController.navigate(R.id.navigation_library)
-            R.id.navigation_profile -> navController.navigate(R.id.navigation_profile)
-            else -> navController.navigate(R.id.navigation_home)
-        }
-
-        logBackStack(navController)
     }
 
     override fun onResume() {
