@@ -121,73 +121,43 @@ interface SongDao {
     @Query("UPDATE songs SET filePath = :filePath WHERE id = :id AND userId = :userId")
     suspend fun updateSongFilePath(id: Long, filePath: String, userId: String)
 
-    /**
-     * Ambil 5 rekomendasi lagu terbaik berdasarkan kombinasi semua faktor:
-     * - Trending (banyak diputar belakangan)
-     * - User preference (berdasarkan histori user)
-     * - Artist similarity (artis yang sama dengan yang sering diputar user)
-     * - Likes dari user lain
-     * - PlayCount tinggi
-     *
-     * @param userId ID user yang mau dikasih rekomendasi
-     * @param sinceTimestamp waktu untuk menentukan "trending" berdasarkan 7 hari terakhir
-     * @return List maksimal 5 lagu rekomendasi dengan skor tertinggi
-     */
     @Query("""
     WITH user_stats AS (
-        -- Analisa preferensi user berdasarkan histori
         SELECT 
-            SUBSTR(title, 1, 3) as title_pattern,
-            COUNT(*) as pattern_count,
-            AVG(playCount) as avg_play_preference
+            artist,
+            AVG(playCount) AS avg_play_preference,
+            SUM(isLiked) AS total_likes
         FROM songs 
-        WHERE userId = :userId AND playCount > 0
-        GROUP BY SUBSTR(title, 1, 3)
+        WHERE userId = :userId
+        GROUP BY artist
     ),
     candidate_songs AS (
         SELECT s.*,
-            -- Skor trending: lagu yang banyak diputar belakangan (25%)
+            (s.playCount * 0.25) AS popularity_score,
             CASE 
                 WHEN s.lastPlayedAt > :sinceTimestamp THEN s.playCount * 0.25
                 ELSE 0 
-            END as trending_score,
-            
-            -- Skor user preference: berdasarkan pola judul yang sering diputar user (20%)
+            END AS trending_score,
             COALESCE(
-                (SELECT us.pattern_count * 0.20 
+                (SELECT us.avg_play_preference * 0.20 
                  FROM user_stats us 
-                 WHERE us.title_pattern = SUBSTR(s.title, 1, 3)), 
+                 WHERE us.artist = s.artist), 
                 0
-            ) as preference_score,
-            
-            -- Skor likes: lagu yang banyak di-like (20%)
-            CASE WHEN s.isLiked = 1 THEN 20 ELSE 0 END as likes_score,
-            
-            -- Skor playCount: popularitas umum lagu (25%)
-            (s.playCount * 0.25) as popularity_score,
-            
-            -- Bonus skor untuk diversity: random factor untuk variasi (10%)
-            (ABS(RANDOM()) % 10) as diversity_score
-            
+            ) AS artist_preference_score,
+            CASE WHEN s.isLiked = 1 THEN 20 ELSE 0 END AS likes_score
         FROM songs s
-        WHERE s.userId != :userId 
-        AND s.id NOT IN (
-            -- Exclude lagu yang udah pernah diputar atau di-like user
-            SELECT id FROM songs 
-            WHERE userId = :userId 
-            AND (isLiked = 1 OR playCount > 0)
-        )
+        WHERE s.userId = :userId
     )
-    SELECT *,
-        (trending_score + preference_score + likes_score + popularity_score + diversity_score) as total_score
+    SELECT *, 
+        (popularity_score + trending_score + artist_preference_score + likes_score) AS total_score
     FROM candidate_songs
-    WHERE total_score > 0  -- Hanya ambil yang ada skornya
-    ORDER BY total_score DESC, playCount DESC, RANDOM()
+    ORDER BY total_score DESC
     LIMIT 5
-""")
+    """)
     @RewriteQueriesToDropUnusedColumns
     suspend fun getSmartRecommendations(
         userId: String?,
-        sinceTimestamp: Long = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000) // 7 hari terakhir
+        sinceTimestamp: Long = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000)
     ): List<SongEntity>
+
 }
