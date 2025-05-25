@@ -77,8 +77,38 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
+
+        Log.d("MainActivity", "onNewIntent called, extras: ${intent?.extras}")
         setIntent(intent)
-        handleDeepLink(intent)
+
+        if (intent?.data != null) {
+            handleDeepLink(intent)
+        } else {
+            // Direct notification handling - this is critical for your case
+            val openPlayer = intent?.getBooleanExtra("OPEN_PLAYER", false) ?: false
+            val songId = intent?.getLongExtra("SONG_ID", -1L) ?: -1L
+
+            if (openPlayer && songId != -1L) {
+                Log.d("MainActivity", "onNewIntent: Opening player from notification, songId: $songId")
+
+                lifecycleScope.launch {
+                    try {
+                        val repository = SongRepository(
+                            database.songDao(),
+                            this@MainActivity
+                        )
+
+                        val song = repository.getSongById(songId)
+                        if (song != null) {
+                            // Navigate to now playing screen
+                            navigateToNowPlaying(song)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error handling notification in onNewIntent: ${e.message}", e)
+                    }
+                }
+            }
+        }
     }
 
     private fun verifyTokenAndNavigate() {
