@@ -37,6 +37,10 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
         entities.map { it.toDomainModel() }
     }
 
+    val downloadedSongs = songDao.getDownloadedSongs().map { entities ->
+        entities.map { it.toDomainModel() }
+    }
+
     /**
      * Tambahin counter berapa kali lagu udah diputar.
      */
@@ -229,7 +233,7 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
     suspend fun isDownloaded(songId: Long): Boolean {
         return withContext(Dispatchers.IO) {
             val song = songDao.getSongById(songId)
-            song?.filePath?.startsWith("/") == true || song?.filePath?.startsWith("file://") == true
+            song?.filePath?.startsWith("/") == true || song?.filePath?.startsWith("file://") == true || song?.filePath?.startsWith("content://") == true
         }
     }
 
@@ -242,6 +246,19 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
             entity?.toDomainModel()
         }
     }
+
+    suspend fun isSongAlreadyDownloaded(title: String, artist: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val count = songDao.getSongCountByTitleAndArtist(title, artist)
+                count > 0
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+
+
 
     /**
      * Ambil 5 rekomendasi lagu terbaik berdasarkan kombinasi semua faktor:
@@ -258,9 +275,9 @@ class SongRepository(private val songDao: SongDao, private val context: Context)
         return withContext(Dispatchers.IO) {
             try {
                 val userId = tokenManager.getEmail()
-                val sinceTimestamp = System.currentTimeMillis() - (daysBack * 24 * 60 * 60 * 1000L)
 
-                val songEntities = songDao.getSmartRecommendations(userId, sinceTimestamp)
+                val songEntities = songDao.getSmartRecommendations(userId)
+                Log.d("Song Entities Count", "${songEntities.count()}")
                 songEntities.map { it.toDomainModel() }
 
             } catch (e: Exception) {

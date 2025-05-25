@@ -38,6 +38,12 @@ import androidx.navigation.NavOptions
 import com.bumptech.glide.Glide
 import android.content.Context
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.PorterDuff
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 
 class MainActivity : AppCompatActivity() {
     private val networkViewModel by viewModels<NetworkViewModel>()
@@ -56,22 +62,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var currentTab = R.id.navigation_home
+    private var isLandscape = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         verifyTokenAndNavigate()
-        
+
         // Handle deep links that launched the app
         if (intent?.data != null) {
             handleDeepLink(intent)
         }
     }
-    
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
+
+        Log.d("MainActivity", "onNewIntent called, extras: ${intent?.extras}")
         setIntent(intent)
-        handleDeepLink(intent)
+
+        if (intent?.data != null) {
+            handleDeepLink(intent)
+        } else {
+            // Direct notification handling - this is critical for your case
+            val openPlayer = intent?.getBooleanExtra("OPEN_PLAYER", false) ?: false
+            val songId = intent?.getLongExtra("SONG_ID", -1L) ?: -1L
+
+            if (openPlayer && songId != -1L) {
+                Log.d("MainActivity", "onNewIntent: Opening player from notification, songId: $songId")
+
+                lifecycleScope.launch {
+                    try {
+                        val repository = SongRepository(
+                            database.songDao(),
+                            this@MainActivity
+                        )
+
+                        val song = repository.getSongById(songId)
+                        if (song != null) {
+                            // Navigate to now playing screen
+                            navigateToNowPlaying(song)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error handling notification in onNewIntent: ${e.message}", e)
+                    }
+                }
+            }
+        }
     }
 
     private fun verifyTokenAndNavigate() {
@@ -119,6 +156,10 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             binding = ActivityMainBinding.inflate(layoutInflater)
             setContentView(binding.root)
+
+            // Check orientation
+            isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
             setupMusicPlayer()
             setupNavigation()
             setupListPadding()
@@ -134,14 +175,46 @@ class MainActivity : AppCompatActivity() {
         tokenRefreshManager.scheduleTokenRefresh()
     }
 
-
     private fun setupNavigation() {
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
         var isInNowPlayingFragment = false
 
+        if (isLandscape) {
+            // Setup landscape navigation using sidebar LinearLayouts
+            setupLandscapeNavigation(navController)
+        } else {
+            // Setup portrait navigation using BottomNavigationView
+            setupPortraitNavigation(navController)
+        }
+
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            isInNowPlayingFragment = (destination.id == R.id.navigation_now_playing)
+            updateMiniPlayerVisibility(isInNowPlayingFragment)
+
+            if (destination.id != R.id.navigation_now_playing) {
+                if (!isLandscape) {
+                    binding.bottomNavigation.menu.findItem(destination.id)?.isChecked = true
+                } else {
+                    updateLandscapeNavigationState(destination.id)
+                }
+            }
+        }
+
+        musicPlayerViewModel.currentSong.observe(this) { song ->
+            if (!isInNowPlayingFragment) {
+                binding.miniPlayerContainer.visibility =
+                    if (song != null) View.VISIBLE else View.GONE
+            }
+
+            song?.let { updateMiniPlayer(it) }
+        }
+    }
+
+    private fun setupPortraitNavigation(navController: NavController) {
         binding.bottomNavigation.setOnItemSelectedListener { item ->
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
             val currentFragment = navHostFragment.childFragmentManager.fragments.firstOrNull()
             val isOnNowPlaying = currentFragment is NowPlayingFragment
 
@@ -157,23 +230,83 @@ class MainActivity : AppCompatActivity() {
 
             true
         }
+    }
 
-        navController.addOnDestinationChangedListener { _, destination, _ ->
-            isInNowPlayingFragment = (destination.id == R.id.navigation_now_playing)
-            updateMiniPlayerVisibility(isInNowPlayingFragment)
-
-            if (destination.id != R.id.navigation_now_playing) {
-                binding.bottomNavigation.menu.findItem(destination.id)?.isChecked = true
-            }
+    private fun setupLandscapeNavigation(navController: NavController) {
+        // Setup click listeners for landscape sidebar navigation
+        binding.navHome?.setOnClickListener {
+            navigateToDestination(navController, R.id.navigation_home)
         }
 
-        musicPlayerViewModel.currentSong.observe(this) { song ->
-            if (!isInNowPlayingFragment) {
-                binding.miniPlayerContainer.visibility =
-                    if (song != null) View.VISIBLE else View.GONE
-            }
+        binding.navLibrary?.setOnClickListener {
+            navigateToDestination(navController, R.id.navigation_library)
+        }
 
-            song?.let { updateMiniPlayer(it) }
+        binding.navProfile?.setOnClickListener {
+            navigateToDestination(navController, R.id.navigation_profile)
+        }
+    }
+
+    private fun navigateToDestination(navController: NavController, destinationId: Int) {
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        val currentFragment = navHostFragment.childFragmentManager.fragments.firstOrNull()
+        val isOnNowPlaying = currentFragment is NowPlayingFragment
+
+        if (isOnNowPlaying) {
+            navController.popBackStack(navController.graph.startDestinationId, false)
+        }
+
+        try {
+            navController.navigate(destinationId)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Navigation error: ${e.message}", e)
+        }
+    }
+
+    private fun updateLandscapeNavigationState(currentDestinationId: Int) {
+        // Reset all navigation items to unselected state
+        binding.navHome?.isSelected = false
+        binding.navLibrary?.isSelected = false
+        binding.navProfile?.isSelected = false
+
+        // Set warna hijau untuk item yang dipilih
+        val selectedColor = getColor(R.color.accent_green)
+        val unSelectedColor = getColor(R.color.white)
+        when (currentDestinationId) {
+            R.id.navigation_home -> {
+                binding.navHomeIc?.setColorFilter(selectedColor)
+                binding.navHomeText?.setTextColor(selectedColor)
+                binding.navHome?.isSelected = true
+                binding.navLibraryIc?.setColorFilter(unSelectedColor)
+                binding.navLibraryText?.setTextColor(unSelectedColor)
+                binding.navLibrary?.isSelected = false
+                binding.navProfileIc?.setColorFilter(unSelectedColor)
+                binding.navProfileText?.setTextColor(unSelectedColor)
+                binding.navProfile?.isSelected = false
+
+            }
+            R.id.navigation_library -> {
+                binding.navLibraryIc?.setColorFilter(selectedColor)
+                binding.navLibraryText?.setTextColor(selectedColor)
+                binding.navLibrary?.isSelected = true
+                binding.navProfileIc?.setColorFilter(unSelectedColor)
+                binding.navProfileText?.setTextColor(unSelectedColor)
+                binding.navProfile?.isSelected = false
+                binding.navHomeIc?.setColorFilter(unSelectedColor)
+                binding.navHomeText?.setTextColor(unSelectedColor)
+                binding.navHome?.isSelected = false
+            }
+            R.id.navigation_profile -> {
+                binding.navProfileIc?.setColorFilter(selectedColor)
+                binding.navProfileText?.setTextColor(selectedColor)
+                binding.navProfile?.isSelected = true
+                binding.navLibraryIc?.setColorFilter(unSelectedColor)
+                binding.navLibraryText?.setTextColor(unSelectedColor)
+                binding.navLibrary?.isSelected = false
+                binding.navHomeIc?.setColorFilter(unSelectedColor)
+                binding.navHomeText?.setTextColor(unSelectedColor)
+                binding.navHome?.isSelected = false
+            }
         }
     }
 
@@ -311,7 +444,6 @@ class MainActivity : AppCompatActivity() {
         val factory = MusicPlayerViewModelFactory(application, repository)
         musicPlayerViewModel = ViewModelProvider(this, factory)[MusicPlayerViewModel::class.java]
 
-        // Observe audio device errors
         musicPlayerViewModel.audioDeviceError.observe(this) { errorMessage ->
             errorMessage?.let {
                 Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
@@ -337,7 +469,6 @@ class MainActivity : AppCompatActivity() {
             try {
                 val currentSong = musicPlayerViewModel.currentSong.value
                 if (currentSong != null) {
-                    // Use your existing navigation method
                     navigateToNowPlaying(currentSong)
                 } else {
                     binding.miniPlayerContainer.visibility = View.GONE
@@ -349,21 +480,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Updated like button to use ViewModel
         binding.miniPlayer.btnAddLiked.setOnClickListener {
-            musicPlayerViewModel.currentSong.value?.let { song ->
-                lifecycleScope.launch {
-                    if(repository.getLikedStatusBySongId(song.id)){
-                        repository.updateLikeStatus(song.id, false)
-                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_heart_outline)
-                    }
-                    else{
-                        repository.updateLikeStatus(song.id, true)
-                        binding.miniPlayer.btnAddLiked.setImageResource(R.drawable.ic_heart_filled)
-                    }
-                }
-            }
+            Log.d("MainActivity", "Like button clicked")
+            musicPlayerViewModel.toggleLikeStatus()
         }
-        
+
         binding.miniPlayer.btnMiniShare.setOnClickListener {
             musicPlayerViewModel.currentSong.value?.let { song ->
                 if (SharingUtils.canShareSong(song)) {
@@ -374,6 +496,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Observe progress and duration
         musicPlayerViewModel.progress.observe(this) { progress ->
             binding.miniPlayer.miniSeekBar.progress = progress
         }
@@ -382,6 +505,7 @@ class MainActivity : AppCompatActivity() {
             binding.miniPlayer.miniSeekBar.max = duration
         }
 
+        // Observe current song changes
         musicPlayerViewModel.currentSong.observe(this) { song ->
             Log.d("MainActivity", "Current song changed: ${song?.title ?: "null"}")
             song?.let {
@@ -389,6 +513,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Observe play/pause state
         musicPlayerViewModel.isPlaying.observe(this) { isPlaying ->
             val icon = if (isPlaying) {
                 R.drawable.ic_pause
@@ -396,6 +521,14 @@ class MainActivity : AppCompatActivity() {
                 R.drawable.ic_play
             }
             binding.miniPlayer.btnMiniPlayPause.setImageResource(icon)
+        }
+
+        // Observe like status dari ViewModel
+        musicPlayerViewModel.isCurrentSongLiked.observe(this) { isLiked ->
+            Log.d("MainActivity", "Like status changed in mini player: $isLiked")
+            binding.miniPlayer.btnAddLiked.setImageResource(
+                if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+            )
         }
     }
 
@@ -409,20 +542,6 @@ class MainActivity : AppCompatActivity() {
         // Observe active audio device and update indicator
         musicPlayerViewModel.activeAudioDevice.observe(this) { device ->
             device?.let { updateAudioDeviceIndicator(it) }
-        }
-
-        musicPlayerViewModel.currentSong.value?.let { currentSong ->
-            lifecycleScope.launch {
-                val isLiked = try {
-                    repository.getLikedStatusBySongId(currentSong.id)
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Error getting liked status: ${e.message}")
-                    false
-                }
-                binding.miniPlayer.btnAddLiked.setImageResource(
-                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                )
-            }
         }
 
         Glide.with(this)
@@ -460,39 +579,6 @@ class MainActivity : AppCompatActivity() {
             // Handle navigation failures gracefully
             Toast.makeText(this, "Unable to open player", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun logBackStack(navController: NavController) {
-        val backStack = mutableListOf<String>()
-        var backStackIndex = 0
-
-        try {
-            while (true) {
-                val entry = navController.getBackStackEntry(backStackIndex)
-                backStack.add("${entry.destination.label ?: entry.destination.id}")
-                backStackIndex++
-            }
-        } catch (e: Exception) {
-
-        }
-
-        Log.d("NavigationDebug", "Back stack (${backStack.size}): ${backStack.joinToString(" -> ")}")
-    }
-
-    fun navigateBackFromNowPlaying() {
-        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-        val navController = navHostFragment.navController
-
-        Log.d("Navigation", "Navigating back from Now Playing to tab: $currentTab")
-
-        when (currentTab) {
-            R.id.navigation_home -> navController.navigate(R.id.navigation_home)
-            R.id.navigation_library -> navController.navigate(R.id.navigation_library)
-            R.id.navigation_profile -> navController.navigate(R.id.navigation_profile)
-            else -> navController.navigate(R.id.navigation_home)
-        }
-
-        logBackStack(navController)
     }
 
     override fun onResume() {

@@ -35,6 +35,7 @@ import com.example.purrytify.data.repository.SongRepository
 import kotlinx.coroutines.runBlocking
 import androidx.core.net.toUri
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Looper
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -106,6 +107,8 @@ class MediaPlayerService : LifecycleService() {
 
     private lateinit var notificationManager: NotificationManager
 
+    private var notificationUpdateJob: Runnable? = null
+
     /**
      * Local binder class buat interaksi service dengan activity.
      * Ini biar activity bisa manggil method service secara langsung.
@@ -144,6 +147,15 @@ class MediaPlayerService : LifecycleService() {
             }
         }
 
+        notificationUpdateJob = Runnable {
+            if (_currentSong.value != null) {
+                updateNotification()
+            }
+            notificationUpdateJob?.let {
+                mainHandler.postDelayed(it, 1000) // Update notification every second
+            }
+        }
+
         mediaSessionUpdateJob = Runnable {
             updateMediaSessionState()
             mediaSessionUpdateJob?.let {
@@ -175,6 +187,16 @@ class MediaPlayerService : LifecycleService() {
                 Log.d(TAG, "isPlaying changed but no current song, skipping notification update")
             }
         }
+    }
+
+    private fun startNotificationUpdates() {
+        Log.d(TAG, "startNotificationUpdates: Starting notification updates")
+        notificationUpdateJob?.let { mainHandler.post(it) }
+    }
+
+    private fun stopNotificationUpdates() {
+        Log.d(TAG, "stopNotificationUpdates: Stopping notification updates")
+        notificationUpdateJob?.let { mainHandler.removeCallbacks(it) }
     }
 
     // Add this method to start updates
@@ -504,7 +526,7 @@ class MediaPlayerService : LifecycleService() {
                                 val currentTime = System.currentTimeMillis()
                                 val duration = currentTime - playStartTime
                                 totalPlayTimeInSession += duration
-                                
+
                                 // Record the listening session in the database
                                 _currentSong.value?.let { song ->
                                     val userId = tokenManager.getEmail()
@@ -515,11 +537,11 @@ class MediaPlayerService : LifecycleService() {
                                         }
                                     }
                                 }
-                                
+
                                 // Reset the start time
                                 playStartTime = 0
                             }
-                            
+
                             // Update playing status
                             _isPlaying.postValue(false)
 
@@ -734,6 +756,7 @@ class MediaPlayerService : LifecycleService() {
                         forceInitialSyncWithDelay()
                         startProgressUpdates()
                         startMediaSessionUpdates()
+                        startNotificationUpdates()
                         updateMediaSessionState()
                         updateNotification()
                     } else {
@@ -826,6 +849,7 @@ class MediaPlayerService : LifecycleService() {
             _isPlaying.postValue(false)
             stopProgressUpdates()
             stopMediaSessionUpdates()
+            stopNotificationUpdates()
             updateMediaSessionState()
             updateNotification()
         } catch (e: IllegalStateException) {
@@ -1090,42 +1114,68 @@ class MediaPlayerService : LifecycleService() {
     private fun createNotification(song: Song): Notification {
         Log.d(TAG, "createNotification: Creating notification for ${song.title}")
 
-        // Create intent for when notification is clicked
         val contentIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP  or Intent.FLAG_ACTIVITY_NEW_TASK
             putExtra("OPEN_PLAYER", true)
             putExtra("SONG_ID", song.id)
+            putExtra("TIMESTAMP", System.currentTimeMillis())
+
+            action = "com.example.purrytify.OPEN_PLAYER"
+            data = Uri.parse("content://song/${song.id}?time=${System.currentTimeMillis()}")
         }
 
         val contentPendingIntent = PendingIntent.getActivity(
-            this, 0, contentIntent,
+            this,
+            song.id.toInt(), // Request code based on song ID
+            contentIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         // Use a separate method for safe bitmap loading
         val largeIcon = getSafeBitmap(song)
 
-        // CRITICAL: Get playback state directly from MediaPlayer, not LiveData
-        // LiveData can be delayed or out of sync
         val isCurrentlyPlaying = try {
             mediaPlayer?.isPlaying == true
         } catch (e: Exception) {
             _isPlaying.value ?: false
         }
 
+        // Get current progress and total duration for the progress display
+        val currentPosition = getCurrentPosition()
+        val totalDuration = _duration.value ?: getDuration()
+
+        // Format the time for display (e.g., "1:45 / 3:30")
+        val currentMinutes = TimeUnit.MILLISECONDS.toMinutes(currentPosition.toLong())
+        val currentSeconds = TimeUnit.MILLISECONDS.toSeconds(currentPosition.toLong()) -
+                TimeUnit.MINUTES.toSeconds(currentMinutes)
+
+        val totalMinutes = TimeUnit.MILLISECONDS.toMinutes(totalDuration.toLong())
+        val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(totalDuration.toLong()) -
+                TimeUnit.MINUTES.toSeconds(totalMinutes)
+
+        val timeText = String.format("%d:%02d / %d:%02d",
+            currentMinutes, currentSeconds, totalMinutes, totalSeconds)
+
         Log.d(TAG, "createNotification: Current playing state: $isCurrentlyPlaying")
 
         // Create the notification builder
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_music_note)
+            .setSmallIcon(R.drawable.notif_logo)
             .setLargeIcon(largeIcon)
             .setContentTitle(song.title)
-            .setContentText(song.artist)
+            // Add the duration info to the content text
+            .setContentText("${song.artist} • $timeText")
+            .setSubText(timeText)  // Show time as additional info
             .setContentIntent(contentPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(isCurrentlyPlaying)
             .setAutoCancel(false)
+
+        // Add progress bar (shows playback position)
+        if (totalDuration > 0) {
+            builder.setProgress(totalDuration, currentPosition, false)
+        }
 
         // Create MediaStyle with MediaSession token - this integrates with system controls
         val mediaStyle = MediaStyle().setMediaSession(mediaSession?.sessionToken)
@@ -1371,6 +1421,8 @@ class MediaPlayerService : LifecycleService() {
     override fun onDestroy() {
         Log.d(TAG, "onDestroy: Service being destroyed")
         stopProgressUpdates()
+        stopMediaSessionUpdates()
+        stopNotificationUpdates()
 
         // Kalo lagi play, update state dulu biar observer dapet notif
         if (mediaPlayer?.isPlaying == true) {

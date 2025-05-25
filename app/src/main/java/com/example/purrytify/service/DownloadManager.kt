@@ -22,6 +22,7 @@ import android.content.Intent
 import android.media.RingtoneManager
 import android.widget.Toast
 import androidx.lifecycle.LiveData
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class DownloadManager(private val context: Context) {
     private val workManager = WorkManager.getInstance(context)
@@ -272,6 +273,11 @@ class DownloadManager(private val context: Context) {
                         "$songTitle downloaded successfully",
                         Toast.LENGTH_SHORT
                     ).show()
+
+                    // Add this broadcast
+                    val intent = Intent("com.example.purrytify.DOWNLOAD_COMPLETE")
+                    intent.putExtra("song_id", songId)
+                    LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
                 }
 
                 Result.success()

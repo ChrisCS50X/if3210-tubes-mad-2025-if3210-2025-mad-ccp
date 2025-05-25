@@ -99,7 +99,7 @@ class NowPlayingFragment : Fragment() {
         observeViewModel()
         observeAudioDevices()
     }
-    
+
     override fun onResume() {
         super.onResume()
         try {
@@ -112,11 +112,15 @@ class NowPlayingFragment : Fragment() {
             LocalBroadcastManager.getInstance(requireContext())
                 .registerReceiver(checkRepeatModeReceiver, filterCheckRepeatMode)
             Log.d("NowPlayingFragment", "Registered broadcast receiver for CHECK_REPEAT_MODE")
+
+            // Refresh like status saat fragment terlihat
+            musicPlayerViewModel.refreshLikeStatus()
+
         } catch (e: Exception) {
             Log.e("NowPlayingFragment", "Error registering receiver", e)
         }
     }
-    
+
     override fun onPause() {
         super.onPause()
         try {
@@ -132,13 +136,16 @@ class NowPlayingFragment : Fragment() {
         }
     }
 
+
+// NowPlayingFragment.kt - Updated setupUI and observeViewModel methods
+
     private fun setupUI() {
         Log.d("NowPlayingFragment", "Setting up UI")
 
         binding.btnBack.setOnClickListener {
             findNavController().navigateUp()
         }
-        
+
         binding.btnShare.setOnClickListener {
             musicPlayerViewModel.currentSong.value?.let { song ->
                 if (SharingUtils.canShareSong(song)) {
@@ -153,77 +160,49 @@ class NowPlayingFragment : Fragment() {
             showAudioDeviceSelectionDialog()
         }
 
+        // Updated favorite button click listener - uses ViewModel method consistently
         binding.btnFavorite.setOnClickListener {
-            musicPlayerViewModel.currentSong.value?.let { song ->
-                lifecycleScope.launch {
-                    try {
-                        if (songRepository.getLikedStatusBySongId(song.id)) {
-                            songRepository.updateLikeStatus(song.id, false)
-                            binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
-                        } else {
-                            songRepository.updateLikeStatus(song.id, true)
-                            binding.btnFavorite.setImageResource(R.drawable.ic_heart_filled)
-                        }
-                    } catch (e: Exception) {
-                        Log.e("NowPlayingFragment", "Error toggling liked status: ${e.message}")
-                        Toast.makeText(requireContext(), "Error updating like status", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
+            Log.d("NowPlayingFragment", "Favorite button clicked")
+            musicPlayerViewModel.toggleLikeStatus()
         }
 
         args.song?.let { song ->
             updateSongInfo(song)
-            lifecycleScope.launch {
-                try {
-                    val isLiked = songRepository.getLikedStatusBySongId(song.id)
-                    binding.btnFavorite.setImageResource(
-                        if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                    )
-                } catch (e: Exception) {
-                    Log.e("NowPlayingFragment", "Error checking initial liked status: ${e.message}")
-                    binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
-                }
-            }
         }
     }
 
     private fun updateSongInfo(song: Song) {
+        // Only access binding synchronously if we're sure it's attached
+        if (_binding == null) {
+            Log.d("NowPlayingFragment", "Skipping updateSongInfo, binding is null")
+            return
+        }
+
         binding.tvSongTitle.text = song.title
         binding.tvArtistName.text = song.artist
 
-        // Add try-catch around liked status check
-        lifecycleScope.launch {
-            try {
-                val isLiked = songRepository.getLikedStatusBySongId(song.id)
-                binding.btnFavorite.setImageResource(
-                    if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                )
-            } catch (e: Exception) {
-                Log.e("NowPlayingFragment", "Error checking liked status: ${e.message}")
-                binding.btnFavorite.setImageResource(R.drawable.ic_heart_outline)
-            }
-        }
+        // Do synchronous UI updates only if we're still attached
+        _binding?.let { validBinding ->
+            Glide.with(this)
+                .load(song.coverUrl)
+                .placeholder(R.drawable.placeholder_album)
+                .error(R.drawable.placeholder_album)
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .into(validBinding.ivAlbumCover)
 
-        Glide.with(this)
-            .load(song.coverUrl)
-            .placeholder(R.drawable.placeholder_album)
-            .error(R.drawable.placeholder_album)
-            .transition(DrawableTransitionOptions.withCrossFade())
-            .into(binding.ivAlbumCover)
+            val minutes = TimeUnit.MILLISECONDS.toMinutes(song.duration)
+            val seconds = TimeUnit.MILLISECONDS.toSeconds(song.duration) -
+                    TimeUnit.MINUTES.toSeconds(minutes)
+            validBinding.tvTotalDuration.text = String.format("%02d:%02d", minutes, seconds)
 
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(song.duration)
-        val seconds = TimeUnit.MILLISECONDS.toSeconds(song.duration) -
-                TimeUnit.MINUTES.toSeconds(minutes)
-        binding.tvTotalDuration.text = String.format("%02d:%02d", minutes, seconds)
-
-        if (isAdded && !isDetached) {
-            try {
-                val gradient = BackgroundColorProvider.createGradientBackground(requireContext(), song)
-                binding.layoutNowPlaying.background = gradient
-            } catch (e: Exception) {
-                Log.e("NowPlayingFragment", "Error setting gradient background: ${e.message}")
-                binding.layoutNowPlaying.setBackgroundColor(android.graphics.Color.BLACK)
+            if (isAdded && !isDetached) {
+                try {
+                    val gradient = BackgroundColorProvider.createGradientBackground(requireContext(), song)
+                    validBinding.layoutNowPlaying.background = gradient
+                } catch (e: Exception) {
+                    Log.e("NowPlayingFragment", "Error setting gradient background: ${e.message}")
+                    validBinding.layoutNowPlaying.setBackgroundColor(android.graphics.Color.BLACK)
+                }
             }
         }
     }
@@ -295,6 +274,14 @@ class NowPlayingFragment : Fragment() {
             }
         }
 
+        // Observer untuk Like Status pada Fragment Now Playing
+        musicPlayerViewModel.isCurrentSongLiked.observe(viewLifecycleOwner) { isLiked ->
+            Log.d("NowPlayingFragment", "Like status changed to: $isLiked for song: ${musicPlayerViewModel.currentSong.value?.title}")
+            binding.btnFavorite.setImageResource(
+                if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+            )
+        }
+
         musicPlayerViewModel.isPlaying.observe(viewLifecycleOwner) { isPlayingValue ->
             val isPlaying = isPlayingValue ?: false
             val icon = if (isPlaying) {
@@ -364,35 +351,38 @@ class NowPlayingFragment : Fragment() {
                     true // Local songs are already "downloaded"
                 }
 
-                // Only show download button for online songs
-                binding.btnDownload.visibility = if (isOnlineSong) {
-                    if (isDownloaded) {
-                        binding.btnDownload.setImageResource(R.drawable.ic_download_done)
+                // Critical: Check if binding still exists before updating UI
+                _binding?.let { validBinding ->
+                    // Only show download button for online songs
+                    validBinding.btnDownload.visibility = if (isOnlineSong) {
+                        if (isDownloaded) {
+                            validBinding.btnDownload.setImageResource(R.drawable.ic_download_done)
+                        } else {
+                            validBinding.btnDownload.setImageResource(R.drawable.ic_download)
+                        }
+                        View.VISIBLE
                     } else {
-                        binding.btnDownload.setImageResource(R.drawable.ic_download)
+                        View.GONE
                     }
-                    View.VISIBLE
-                } else {
-                    View.GONE
-                }
 
-                // Set up download click listener
-                binding.btnDownload.setOnClickListener {
-                    if (!isDownloaded) {
-                        Toast.makeText(context,
-                            "Downloading ${song.title}...",
-                            Toast.LENGTH_SHORT).show()
-                        downloadManager.enqueueDownload(song)
-                        binding.btnDownload.isEnabled = false // Prevent multiple clicks
-                    } else {
-                        Toast.makeText(context,
-                            "Song already downloaded",
-                            Toast.LENGTH_SHORT).show()
+                    // Set up download click listener
+                    validBinding.btnDownload.setOnClickListener {
+                        if (!isDownloaded) {
+                            Toast.makeText(context,
+                                "Downloading ${song.title}...",
+                                Toast.LENGTH_SHORT).show()
+                            downloadManager.enqueueDownload(song)
+                            validBinding.btnDownload.isEnabled = false // Prevent multiple clicks
+                        } else {
+                            Toast.makeText(context,
+                                "Song already downloaded",
+                                Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("NowPlayingFragment", "Error updating download button: ${e.message}")
-                binding.btnDownload.visibility = View.GONE
+                _binding?.btnDownload?.visibility = View.GONE
             }
         }
     }

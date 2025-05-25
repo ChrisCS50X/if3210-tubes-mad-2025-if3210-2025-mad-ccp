@@ -21,6 +21,7 @@ class LibraryFragment : Fragment() {
     private var currentSearchQuery: String = ""
     private var allSongsFragment: AllSongsFragment? = null
     private var likedSongsFragment: LikedSongsFragment? = null
+    private var downloadedSongsFragment: DownloadedSongsFragment? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -57,6 +58,7 @@ class LibraryFragment : Fragment() {
     private fun updateSearchResults() {
         allSongsFragment?.updateSearch(currentSearchQuery)
         likedSongsFragment?.updateSearch(currentSearchQuery)
+        downloadedSongsFragment?.updateSearch(currentSearchQuery)
     }
 
     private fun setupViewPager() {
@@ -70,6 +72,7 @@ class LibraryFragment : Fragment() {
             customView.text = when (position) {
                 0 -> "All"
                 1 -> "Liked"
+                2 -> "Downloaded"
                 else -> ""
             }
 
@@ -77,11 +80,17 @@ class LibraryFragment : Fragment() {
         }.attach()
 
         binding.tabLayout.post {
-            val allTab = binding.tabLayout.getTabAt(0)?.view
+            binding.tabLayout.getTabAt(0)?.view?.let { allTab ->
+                val allLayoutParams = allTab.layoutParams as? ViewGroup.MarginLayoutParams
+                allLayoutParams?.marginEnd = 30
+                allTab.layoutParams = allLayoutParams
+            }
 
-            val layoutParams = allTab?.layoutParams as? ViewGroup.MarginLayoutParams
-            layoutParams?.marginEnd = 30
-            allTab?.layoutParams = layoutParams
+            binding.tabLayout.getTabAt(1)?.view?.let { likedTab ->
+                val likedLayoutParams = likedTab.layoutParams as? ViewGroup.MarginLayoutParams
+                likedLayoutParams?.marginEnd = 30
+                likedTab.layoutParams = likedLayoutParams
+            }
         }
     }
 
@@ -91,7 +100,7 @@ class LibraryFragment : Fragment() {
     }
 
     inner class LibraryPagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
-        override fun getItemCount(): Int = 2
+        override fun getItemCount(): Int = 3
 
         override fun createFragment(position: Int): Fragment {
             return when (position) {
@@ -110,6 +119,14 @@ class LibraryFragment : Fragment() {
                         }
                     }
                     likedSongsFragment!!
+                }
+                2 -> {
+                    downloadedSongsFragment = DownloadedSongsFragment().apply {
+                        if (currentSearchQuery.isNotEmpty()) {
+                            this.updateSearch(currentSearchQuery)
+                        }
+                    }
+                    downloadedSongsFragment!!
                 }
                 else -> throw IllegalArgumentException("Invalid position")
             }
