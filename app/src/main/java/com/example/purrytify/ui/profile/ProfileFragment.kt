@@ -6,12 +6,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
-import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.Spinner
-import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.viewModels
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -20,7 +16,6 @@ import com.bumptech.glide.Glide
 import com.example.purrytify.data.local.TokenManager
 import com.example.purrytify.databinding.FragmentProfileBinding
 import com.example.purrytify.data.repository.UserRepository
-import com.example.purrytify.ui.main.MainActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.purrytify.ui.main.NetworkViewModel
@@ -40,7 +35,6 @@ import com.example.purrytify.data.repository.SongRepository
 import com.example.purrytify.ui.analytics.MonthSpinnerAdapter
 import com.example.purrytify.ui.editprofile.EditProfileDialogFragment
 import com.example.purrytify.ui.login.LoginActivity
-import com.example.purrytify.ui.player.MusicPlayerViewModelFactory
 import java.io.File
 
 class ProfileFragment : Fragment() {
@@ -97,6 +91,7 @@ class ProfileFragment : Fragment() {
         observeNetworkStatus()
         setupLogoutButton()
         setupEditProfileButton()
+        setupQrScanButton() // Add QR scan button setup
         observeLogoutEvent()
         setupSoundCapsule()
 
@@ -104,6 +99,12 @@ class ProfileFragment : Fragment() {
         viewModel.loadUserProfile()
     }
 
+    private fun setupQrScanButton() {
+        binding.btnQrScan.setOnClickListener {
+            // Navigate to QR Scanner Fragment
+            findNavController().navigate(R.id.navigation_qr_scanner)
+        }
+    }
 
     private fun observeProfile() {
         val tokenManager = TokenManager(requireContext().applicationContext)
@@ -169,7 +170,7 @@ class ProfileFragment : Fragment() {
     private fun setupSoundCapsule() {
         val analyticsViewModel = viewModel.analyticsViewModel
         val soundCapsuleLayout = binding.soundCapsuleLayout
-        
+
         // Initialize views using binding directly
         val spinnerMonth = soundCapsuleLayout.spinnerMonth
         val tvTimeListened = soundCapsuleLayout.tvTimeListened
@@ -179,29 +180,29 @@ class ProfileFragment : Fragment() {
         val tvNoData = soundCapsuleLayout.tvNoData
         val dataContainer = soundCapsuleLayout.dataContainer
         val btnExportData = soundCapsuleLayout.btnExportData
-        
+
         // Set up click listeners for analytics items
         soundCapsuleLayout.timeListenedContainer.setOnClickListener {
             navigateToAnalyticsDetail("timeListened")
         }
-        
+
         soundCapsuleLayout.topArtistContainer.setOnClickListener {
             navigateToAnalyticsDetail("topArtist")
         }
-        
+
         soundCapsuleLayout.topSongContainer.setOnClickListener {
             navigateToAnalyticsDetail("topSong")
         }
-        
+
         soundCapsuleLayout.dayStreakContainer.setOnClickListener {
             navigateToAnalyticsDetail("dayStreak")
         }
-        
+
         // Set up spinner
         analyticsViewModel.months.observe(viewLifecycleOwner) { months ->
             val adapter = MonthSpinnerAdapter(requireContext(), months)
             spinnerMonth.adapter = adapter
-            
+
             // Load data for the current month
             if (months.isNotEmpty()) {
                 val userId = TokenManager(requireContext()).getEmail()
@@ -210,21 +211,21 @@ class ProfileFragment : Fragment() {
                 }
             }
         }
-        
+
         // Handle month selection
         spinnerMonth.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selectedMonth = analyticsViewModel.months.value?.get(position)
                 val userId = TokenManager(requireContext()).getEmail()
-                
+
                 if (selectedMonth != null && !userId.isNullOrEmpty()) {
                     analyticsViewModel.loadAnalyticsForMonth(userId, selectedMonth)
                 }
             }
-            
+
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        
+
         // Observe analytics data
         analyticsViewModel.currentAnalytics.observe(viewLifecycleOwner) { analytics ->
             if (analytics != null && analytics.hasData()) {
@@ -232,12 +233,12 @@ class ProfileFragment : Fragment() {
                 tvNoData.visibility = View.GONE
                 dataContainer.visibility = View.VISIBLE
                 btnExportData.isEnabled = true
-                
+
                 // Update UI
                 tvTimeListened.text = analytics.getFormattedTimeListened()
                 tvTopArtist.text = analytics.topArtist ?: "-"
                 tvTopSong.text = analytics.topSong ?: "-"
-                
+
                 if (analytics.dayStreakCount > 0 && analytics.dayStreakSong != null) {
                     val streakText = if (analytics.dayStreakCount == 1) {
                         "${analytics.dayStreakSong} (1 day - Streak started!)"
@@ -255,19 +256,19 @@ class ProfileFragment : Fragment() {
                 btnExportData.isEnabled = false
             }
         }
-        
+
         // Handle export button
         btnExportData.setOnClickListener {
             val userId = TokenManager(requireContext()).getEmail()
             if (!userId.isNullOrEmpty()) {
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                
+
                 if (!downloadsDir.exists()) {
                     downloadsDir.mkdirs()
                 }
-                
+
                 val file = analyticsViewModel.exportAnalyticsToCsv(userId, downloadsDir)
-                
+
                 if (file != null) {
                     shareExportedFile(file)
                 } else {
@@ -276,34 +277,34 @@ class ProfileFragment : Fragment() {
             }
         }
     }
-    
+
     private fun shareExportedFile(file: File) {
         val uri = FileProvider.getUriForFile(
             requireContext(),
             "com.example.purrytify.provider",
             file
         )
-        
+
         val shareIntent = Intent().apply {
             action = Intent.ACTION_SEND
             putExtra(Intent.EXTRA_STREAM, uri)
             type = "text/csv"
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        
+
         startActivity(Intent.createChooser(shareIntent, "Share Analytics Data"))
     }
-    
+
     /**
      * Navigate to the appropriate analytics detail screen based on the clicked item
      */
     private fun navigateToAnalyticsDetail(detailType: String) {
         val userId = TokenManager(requireContext()).getEmail() ?: return
-        
+
         // Get the currently selected month and year
         val selectedMonthPosition = binding.soundCapsuleLayout.spinnerMonth.selectedItemPosition
         val selectedMonth = viewModel.analyticsViewModel.months.value?.getOrNull(selectedMonthPosition) ?: return
-        
+
         when (detailType) {
             "timeListened" -> {
                 findNavController().navigate(
@@ -347,6 +348,7 @@ class ProfileFragment : Fragment() {
         binding.tvListenedCount.visibility = View.GONE
         binding.tvLikedCount.visibility = View.GONE
         binding.btnLogout.visibility = View.GONE
+        binding.btnQrScan.visibility = View.GONE // Add QR scan button
         binding.btnEditProfileMain.visibility = View.GONE
         binding.soundCapsuleLayout.root.visibility = View.GONE
     }
@@ -362,6 +364,7 @@ class ProfileFragment : Fragment() {
         binding.tvListenedCount.visibility = View.VISIBLE
         binding.tvLikedCount.visibility = View.VISIBLE
         binding.btnLogout.visibility = View.VISIBLE
+        binding.btnQrScan.visibility = View.VISIBLE // Add QR scan button
         binding.btnEditProfileMain.visibility = View.VISIBLE
         binding.soundCapsuleLayout.root.visibility = View.VISIBLE
     }

@@ -154,4 +154,14 @@
             android:name="month"
             app:argType="integer" />
     </fragment>
+
+    <fragment
+        android:id="@+id/navigation_qr_scanner"
+        android:name="com.example.purrytify.ui.qrscan.QrScannerFragment"
+        android:label="QR Scanner"
+        tools:layout="@layout/fragment_qr_scanner" />
+    <action
+        android:id="@+id/action_navigation_profile_to_navigation_qr_scanner"
+        app:destination="@id/navigation_qr_scanner" />
+
 </navigation>

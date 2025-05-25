@@ -62,6 +62,7 @@ dependencies {
     implementation ("androidx.lifecycle:lifecycle-service:2.6.2")
     implementation(libs.play.services.location)
     implementation(libs.play.services.maps)
+    implementation(libs.androidx.camera.view)
     kapt("com.github.bumptech.glide:compiler:4.16.0")
     
     // Color Exraction
@@ -110,6 +111,12 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // Camera
+    implementation ("com.journeyapps:zxing-android-embedded:4.3.0")
+
+    // Untuk QR Code scanning
+    implementation ("com.google.zxing:core:3.4.1")
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
